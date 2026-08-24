@@ -14,6 +14,7 @@ from app.models.policy import PolicyDocument, PolicyChunk
 from app.api.dependencies.auth import get_password_hash
 from app.ai.embeddings import generate_embedding
 from app.ai.vector_store import save_policy_chunk
+from app.services.agent_orchestrator import AgentOrchestrator
 
 # Regulatory compliance manuals to seed
 POLICY_DOCUMENTS = [
@@ -90,6 +91,22 @@ MOCK_TRANSACTIONS = [
     # ----------------------------------------------------
     # DEMO SCENARIO SPECIFIC DATA FOR CUST-7821
     # ----------------------------------------------------
+    # Primary demo transaction
+    {
+        "transaction_id": "TXN-92817",
+        "user_id": "CUST-7821",
+        "amount": 85000.0,
+        "currency": "INR",
+        "device_fingerprint": "df_demo_unseen_99",
+        "ip_address": "103.45.18.99",
+        "billing_country": "IN",
+        "card_country": "US",
+        "card_present": False,
+        "merchant_id": "mer_demo_electronics",
+        "merchant_category": "electronics",
+        "status": "Pending",
+        "risk_score": 0.0
+    },
     # Normal historical transactions (establish 1800 average)
     {
         "transaction_id": "tx_demo_hist_1",
@@ -386,6 +403,12 @@ def seed_database():
             print(f"Seeded Graph edge: ({src_node}) -[{relation}]-> ({tgt_type}:{tgt_id})")
 
         db.commit()
+        
+        # 6. Run agent pipeline on the primary demo transaction to generate assessment, reasoning steps, and memories
+        print("Running agent pipeline on primary demo transaction TXN-92817...")
+        AgentOrchestrator.run_investigation(db, "TXN-92817")
+        db.commit()
+        
         print("SUCCESS: Database seeding finished.")
         
     except Exception as e:

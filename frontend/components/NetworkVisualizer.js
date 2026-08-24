@@ -123,6 +123,7 @@ export default function NetworkVisualizer({ userId, token }) {
         <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• User Account (Purple)</span>
         <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• Device Fingerprint (Green)</span>
         <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• IP Address (Yellow)</span>
+        <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• Transaction (Blue)</span>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import re
 import httpx
 from app.core.config import settings
 from app.core.logging import logger
@@ -99,4 +100,3 @@ def _generate_mock_explanation(prompt: str) -> str:
             "✅ **Auto Approve**: No manual analyst review required."
         )
 
-import re # Import required for regex check in mock

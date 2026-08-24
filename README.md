@@ -1,64 +1,148 @@
-# 🛡️ RazorGuard AI
-### Autonomous Multi-Agent Payment Risk Manager
+# 🛡️ RazorGuard AI — Payment Risk Investigation & Decision Support
 
-[![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![Next.js](https://img.shields.io/badge/Next.js-15.0-black?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16.2-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![pgvector](https://img.shields.io/badge/pgvector-0.6.0-red?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
-
-**RazorGuard AI** is an autonomous risk mitigation and compliance platform built for the **Razorpay AI Builder Buildathon 2026** (AI Risk Manager Track). 
-
-By integrating real-time transaction heuristics, **Multi-Agent Collaborative Reasoning**, a **Semantic Payment Knowledge Graph**, and a **Policy-Based RAG System**, the platform acts as an automated investigator for payment fraud detection and compliance verification.
+RazorGuard AI is an internal operations console designed for payment risk investigation, compliance verification, and human-in-the-loop analyst review. The system analyzes payment transaction streams to detect potential credit card fraud, spend velocity spikes, card-not-present compliance breaches, and relationship overlaps.
 
 ---
 
-## 🚀 Core Workflow
+## 1. Problem
+High-throughput payment gateways face two major problems in risk analysis:
+- **Heuristic Rule Fatigue vs. LLM Latency:** Heuristics check simple static conditions but miss complex network relations. Conversely, running an LLM directly to predict numeric risk scores is too slow, expensive, and non-deterministic.
+- **Explainability Gaps:** Traditional machine learning models (such as Nearest Centroid anomaly classifiers) output numeric risk probabilities but do not explain *why* a transaction was flagged or which compliance rules were violated.
+
+## 2. Solution
+RazorGuard AI resolves these limitations by separating the scoring logic from explanation generation:
+- **Deterministic scoring:** Overall numeric risk values are calculated using fixed math weights applied to ML, rules, graph, and policy models.
+- **Multi-Agent explanation:** Formulates evidence logs from specialized agents (Heuristics, Behavioral, Graph, RAG Compliance) and uses a retrieval-augmented LLM to synthesize a grounded, natural-language explanation briefing for risk operations analysts.
+
+## 3. Key Design Decisions
+- **Deterministic Core Scoring:** Numeric scores are never determined by the LLM. This guarantees consistency, traceability, and reproducibility.
+- **pgvector dense-sparse Hybrid RAG:** Compliance manuals are vectorized using `sentence-transformers` and queried with hybrid Reciprocal Rank Fusion (RRF), ensuring explanation briefings cite real policy clauses.
+- **Shared Hardware Relationship Walking:** Walks a NetworkX transaction graph to detect accounts sharing hardware (device fingerprints) or networks (IPs).
+
+---
+
+## 4. Architecture
 
 ```
-Payment Transaction
-   │
-   ▼
-1. Risk Detection (ML Anomaly Classifier flagsSuspicious inputs)
-   │
-   ▼
-2. Multi-Agent Investigation (Coordinated Specialists analyze transaction metadata, location drift, devices)
-   │
-   ▼
-3. Evidence Retrieval (Hybrid RAG checks PSD2/compliance policies & queries NetworkX Knowledge Graph for fraud loops)
-   │
-   ▼
-4. Unified Risk Scoring (Agents compute weighted scoring indexes)
-   │
-   ▼
-5. Explainable Decision (LLM compiles a natural language reasoning trace & report)
-   │
-   ▼
-6. Human Escalation (Dashboard enables analysts to review trace, investigate graph, override decisions)
+Ingested Payment Event
+      │
+      ▼
+┌────────────────────────────────────────────────────────┐
+│               Deterministic Score Engine               │
+│                                                        │
+│  ┌────────────────┐ ┌──────────────┐ ┌──────────────┐  │
+│  │ Nearest        │ │ Heuristic &  │ │ NetworkX     │  │
+│  │ Centroid ML    │ │ Vel. Rules   │ │ Graph Walk   │  │
+│  │ (Amount, Drift)│ │ (History)    │ │ (Devices)    │  │
+│  └───────┬────────┘ └──────┬───────┘ └──────┬───────┘  │
+│          │                 │                │          │
+│          ▼                 ▼                ▼          │
+│        [35%]             [20%]            [30%]        │
+│          │                 │                │          │
+│          └─────────────────┼────────────────┘          │
+│                            │                           │
+│                            ▼                           │
+│                 Weighted Score Aggregator              │
+│                            │                           │
+│                            ▼                           │
+│         [15%] ◄─── Compliance Policy RAG               │
+│          │                                             │
+│          ▼                                             │
+│    Composite Score & Classification (Safe/Susp/High)   │
+└────────────────────────────┬───────────────────────────┘
+                             │
+                             ▼
+┌────────────────────────────────────────────────────────┐
+│             Multi-Agent Explanation Engine             │
+│                                                        │
+│   ┌────────────────────────────────────────────────┐   │
+│   │ Agent Orchestrator                             │   │
+│   │ - Collects evidence logs from agents           │   │
+│   │ - Grounded LLM synthesizes markdown briefing    │   │
+│   └────────────────────────┬───────────────────────┘   │
+└────────────────────────────┼───────────────────────────┘
+                             ▼
+                 Risk Operations Dashboard
+                 (Human Analyst Override)
 ```
 
 ---
 
-## 📁 Project Structure
+## 5. Risk Scoring
+The composite risk score is calculated deterministically using the following formula:
+$$\text{Composite Score} = (0.35 \times \text{ML Anomaly Score}) + (0.20 \times \text{Rules/Behavior Score}) + (0.30 \times \text{Graph Score}) + (0.15 \times \text{Policy Score})$$
 
-```
-RazorGuard-AI/
-├── backend/                       # FastAPI Web Services & DB integrations
-├── frontend/                      # Next.js 15 Client Web Console
-├── ml/                            # Centroid anomaly classifier files
-├── rag/                           # Regulatory compliance documents
-├── knowledge_graph/               # NetworkX relation builder
-├── data/                          # SQLite/Postgres local configurations
-├── docs/                          # Developer design guides
-├── tests/                         # Pytest automated testing suite
-└── scripts/                       # Database seeding and migration commands
-```
+Where:
+- **ML Anomaly Score (35%)**: Nearest Centroid distance calculation based on normalized transaction amount, geographical location drift, hourly velocity, and device footprint history.
+- **Rules & Behavior Score (20%)**: Average of transaction heuristic violations (e.g., large ticket amount, geographic country mismatch) and behavioral deviations (e.g., payment amount > 3x average historical ticket size).
+- **Graph Overlap Score (30%)**: Number of distinct accounts sharing the current device or IP address (33.3% per overlapping account, capped at 100%).
+- **Policy Compliance Score (15%)**: Hard threshold enforcement. Evaluates to 100% if the payment triggers compliance verification rules (like Card-Not-Present limits).
 
 ---
 
-## 🛠️ Installation & Setup (Local)
+## 6. Multi-Agent Investigation
+The system triggers six specialized agents during ingestion:
+1. **Transaction Risk Agent:** Evaluates immediate properties (amount, card-present status, billing country vs card country).
+2. **Behavioral Risk Agent:** Reviews velocity counts and historical average transaction size.
+3. **Fraud Investigation Agent:** Builds and traverses the network graph to flag shared devices and IPs.
+4. **Policy Agent:** Searches indexed compliance documentation via hybrid RAG.
+5. **Decision Agent:** Computes the overall composite score and assigns classification.
+6. **Action Agent:** Transitions transaction status (Approved, Escalated) based on thresholds.
+
+---
+
+## 7. RAG (Retrieval-Augmented Generation)
+Compliance document policies are chunked using sliding windows and stored in PostgreSQL using the `pgvector` extension.
+- **Hybrid Retrieval:** Blends dense vector search (using `all-MiniLM-L6-v2` embeddings) with sparse keyword queries using Reciprocal Rank Fusion (RRF).
+- **Grounding Citations:** Each retrieved chunk is referenced in the explanation briefing with its source file and index, preventing the LLM from inventing policies.
+
+---
+
+## 8. Knowledge Graph
+Built on top of SQLAlchemy model edges and NetworkX, the relationship graph maps nodes for `User`, `Transaction`, `Device`, `IP`, and `Merchant`.
+- **Topological Walks:** Explores up to 3 hops from the initiating user to find distinct accounts linked to the same device fingerprint or IP.
+- **Visual Evidence:** Visualized in the analyst UI via SVG paths showing the exact links.
+
+---
+
+## 9. Human Review
+Transactions with high composite scores are enqueued as **Escalated** (suspended). Analysts review the evidence console, explore the relationship graph, and submit an override decision (`Approve` or `Block`) with justification notes that are persisted for auditing.
+
+---
+
+## 10. Demo Scenario (TXN-92817)
+To run the complete workflow, seed the database. It contains `TXN-92817` representing a credit card takeover scenario:
+- **Customer:** `CUST-7821` (historical average ticket size is ₹1,800).
+- **Transaction:** ₹85,000 Card-Not-Present payment.
+- **Risk Indicators:** Unseen device, IN billing vs US card geographic mismatch, 4 blocked attempts in under 6 minutes, and device fingerprint shared with 3 suspect accounts.
+- **Calculated Composite Score:** ~87% (High Risk - Escalated status).
+
+---
+
+## 11. Tech Stack
+- **Backend:** FastAPI, SQLAlchemy, PostgreSQL + pgvector, NetworkX.
+- **Frontend:** Next.js (App Router), Lucide Icons, Recharts.
+- **Testing:** Pytest, SQLite fallback for unit testing.
+
+---
+
+## 12. Why these technologies?
+- **FastAPI:** High performance, asynchronous request concurrency, and automated OpenAPI documentation.
+- **PostgreSQL + pgvector:** Enables storing structured relational payment data and dense semantic policy embeddings in a single database engine.
+- **NetworkX:** Offers lightweight, highly optimized, in-memory graph operations for fast topological path walking.
+- **Deterministic Scoring:** Ensures auditability. We can explain exactly how the risk score was computed.
+- **RAG & Multi-Agent:** Grounding the LLM using real policy segments and graph walks prevents hallucinations.
+
+---
+
+## 13. Engineering Trade-offs
+- **Deterministic Core vs LLM Score:** We chose deterministic composite scoring over direct LLM score prediction. This guarantees that numeric results are reproducible and not subject to LLM non-determinism.
+- **Local SQLite Fallback:** We included a CPU-bound in-memory cosine similarity fallback in tests. This enables running unit test suites locally without requiring a live PostgreSQL + pgvector instance.
+- **RAG for Policy Grounding:** Storing manuals in RAG instead of hardcoding prompt instructions prevents context window bloat and allows updating manuals without code changes.
+
+---
+
+## 14. Installation & Setup (Local)
 
 ### Prerequisites
 * **Python**: Version 3.12.x
@@ -82,7 +166,7 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-# Run migrations (after db setup)
+# Run migrations
 alembic upgrade head
 ```
 
@@ -95,41 +179,33 @@ npm run dev
 
 ---
 
-## 🐳 Docker Deployment (Recommended)
+## 15. Docker Deployment (Recommended)
 
 To spin up the entire cluster (PostgreSQL + pgvector, Backend, Frontend):
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Access the client interface at `http://localhost:3000` and API docs at `http://localhost:8000/docs`.
 
 ---
 
-## 🔍 Synthetic Demo Scenario
+## 16. Testing
 
-The repository includes a pre-seeded suspicious transaction designed to showcase the complete autonomous investigation workflow:
-* **Transaction ID**: `TXN-92817`
-* **Amount**: ₹85,000 (breaches Card-Not-Present limitations)
-* **Customer**: `CUST-7821` (historical average of ₹1,800)
-* **Device**: `Previously unseen device` (fingerprint `df_demo_unseen_99`)
-* **Failed Attempts**: 4 blocked transactions within 6 minutes
-* **Location**: Geographic country mismatch (IN billing vs US card)
-* **Linked Suspicious Entities**: 3 suspect accounts connected via device fingerprint overlaps
-
-When ingested, the system outputs:
-* **Risk Score**: ~87/100
-* **Risk Classification**: **High Risk**
-* **Recommended Action**: **HOLD FOR HUMAN REVIEW** (routing status shifted to **Escalated**)
+Run backend tests:
+```bash
+cd backend
+pytest
+```
 
 ---
 
-## ⚠️ Disclaimer & Limitations
-* **Prototype Status**: This is a proof-of-concept prototype built for the Razorpay AI Builder Buildathon 2026.
-* **Synthetic Data Only**: All calculations, customer behaviors, device fingerprints, and payment relationships utilize synthetically generated parameters.
-* **Production Readiness**: Do not use this configuration or codebase for real-world production fraud detection, credit screening, or live payment gateway compliance without proper auditing, hardened encryption, and model tuning.
+## 17. Limitations
+- **Prototype Status:** Built as a proof-of-concept. All data parameters and behaviors are synthetic.
+- **No Real Gateway Hooks:** Designed for risk analysis, does not connect to live card networks.
 
 ---
 
-## ⚖️ License
-Distributed under the MIT License. See `LICENSE` for details.
+## 18. Future Work
+- **Advanced Graph Features:** Integrating real-time message queues (like Kafka) for streaming transactions.
+- **Active Model Tuning:** Transitioning Nearest Centroid classifier to online learning classifiers.

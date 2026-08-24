@@ -50,7 +50,7 @@ export default function DashboardHome() {
 
   return (
     <div>
-      <h1>Risk Command Center</h1>
+      <h1>Risk Dashboard</h1>
       
       {/* Metrics Row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px", marginBottom: "30px" }}>
@@ -90,7 +90,7 @@ export default function DashboardHome() {
             <UserX size={24} />
           </div>
           <div>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase" }}>Blocked Fraud</p>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase" }}>Blocked Payments</p>
             <p style={{ fontSize: "1.6rem", fontWeight: "700", marginTop: "2px" }}>{metrics.blocked}</p>
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function DashboardHome() {
         
         {/* Chart Card */}
         <div className="glass-card">
-          <h2 style={{ marginBottom: "20px" }}>Risk Volume Matrix</h2>
+          <h2 style={{ marginBottom: "20px" }}>Transaction Risk Distribution</h2>
           <div style={{ width: "100%", height: "260px" }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={MOCK_CHART_DATA}>
@@ -129,7 +129,7 @@ export default function DashboardHome() {
 
         {/* Priority Escalations Panel */}
         <div className="glass-card" style={{ display: "flex", flexDirection: "column" }}>
-          <h2>High Priority review</h2>
+          <h2>High Priority Queue</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", flexGrow: 1, overflowY: "auto" }}>
             {escalations.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", color: "var(--text-muted)" }}>

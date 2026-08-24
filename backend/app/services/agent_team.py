@@ -161,7 +161,7 @@ class PolicyRAGAgent:
             evidence = "No active regulatory rules breached. RAG returned empty search index."
             
         return {
-            "agent_name": "Policy/RAG Agent",
+            "agent_name": "Policy Agent",
             "score": float(policy_score),
             "outcome": outcome,
             "evidence": evidence,
@@ -224,15 +224,15 @@ class ActionAgent:
         # Threshold Routing
         if classification == "Safe":
             new_status = "Approved"
-            action = "AUTO_APPROVE"
+            action = "APPROVE"
             explanation = "Transaction risk score is low. Automatic approval processed."
         elif classification == "Suspicious":
             new_status = "Approved" # System warns but releases
-            action = "FLAG_AND_RELEASE"
+            action = "MONITOR"
             explanation = "Transaction flagged as suspicious. System released payment but enqueued alert."
         else: # High Risk
             new_status = "Escalated" # Hold payment
-            action = "HOLD_AND_ESCALATE"
+            action = "ESCALATE"
             explanation = "High risk indicators. Transaction suspended, pending manual analyst review."
             
         # Update transaction status and score in DB
@@ -241,10 +241,10 @@ class ActionAgent:
         db.add(tx)
         db.flush()
         
-        outcome = f"Transaction status transitioned from '{old_status}' to '{new_status}' via rule '{action}'."
+        outcome = f"Transaction status transitioned from '{old_status}' to '{new_status}' via action '{action}'."
         
         return {
-            "agent_name": "Action/Escalation Agent",
+            "agent_name": "Action Agent",
             "action": action,
             "status": new_status,
             "outcome": outcome,
