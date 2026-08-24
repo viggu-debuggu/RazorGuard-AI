@@ -365,11 +365,11 @@ export default function TransactionDetail() {
         <div className="glass-card" style={{ display: "flex", flexDirection: "column" }}>
           <h2>Policy Evidence</h2>
           <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: "15px" }}>
-            Regulatory manual segments retrieved dynamically from compliance knowledgebase base (RAG).
+            Compliance policy segments retrieved from the regulatory manuals database.
           </p>
           
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", flexGrow: 1, overflowY: "auto", maxHeight: "250px" }}>
-            {policyMemory && policyMemory.evidence && policyMemory.evidence !== "No active regulatory rules breached. RAG returned empty search index." ? (
+            {policyMemory && policyMemory.evidence && policyMemory.evidence !== "No active regulatory rules breached. Compliance policy search returned zero matches." ? (
               <div style={{ padding: "12px", border: "1px solid var(--card-border)", borderRadius: "8px", backgroundColor: "rgba(0,0,0,0.15)", fontSize: "0.8rem", lineHeight: "1.4" }}>
                 <p style={{ fontWeight: "700", color: "var(--accent)", marginBottom: "5px" }}>Compliance Check Output:</p>
                 <p style={{ fontStyle: "italic", color: "#e4e4e7" }}>{policyMemory.evidence}</p>
@@ -382,7 +382,7 @@ export default function TransactionDetail() {
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", flexGrow: 1, color: "var(--text-muted)", minHeight: "150px" }}>
                 <HelpCircle size={28} style={{ marginBottom: "10px" }} />
                 <p style={{ fontSize: "0.8rem" }}>No compliance citations triggered</p>
-                <p style={{ fontSize: "0.7rem", marginTop: "2px" }}>RAG search verified no active regulatory rules were violated.</p>
+                <p style={{ fontSize: "0.7rem", marginTop: "2px" }}>Verification search confirmed no active regulatory rules were violated.</p>
               </div>
             )}
           </div>
@@ -411,7 +411,7 @@ export default function TransactionDetail() {
             maxHeight: "240px",
             whiteSpace: "pre-wrap"
           }}>
-            {assessment && assessment.explanation ? assessment.explanation : "Synthesizing RAG compliance grounding trace..."}
+            {assessment && assessment.explanation ? assessment.explanation : "Synthesizing compliance explanation briefing..."}
           </div>
         </div>
 

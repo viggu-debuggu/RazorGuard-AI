@@ -30,7 +30,7 @@ class TransactionRiskAgent:
             violations.append("HIGH_VALUE_CNP")
             evidence_logs.append("[HIGH_VALUE_CNP] Card-Not-Present transaction exceeds high-risk threshold of INR 50,000.")
 
-        # Calculate rule score: 25.0 per violation, capped at 100.0
+        # Calculate rule score: 33.3 per violation, capped at 100.0
         rule_score = min(100.0, len(violations) * 33.3)
         
         outcome = (
@@ -158,7 +158,7 @@ class PolicyRAGAgent:
             evidence = " | ".join(evidence_logs) + " " + " ".join(citations)
         else:
             outcome = "No applicable compliance guidelines resolved in RAG registry."
-            evidence = "No active regulatory rules breached. RAG returned empty search index."
+            evidence = "No active regulatory rules breached. Compliance policy search returned zero matches."
             
         return {
             "agent_name": "Policy Agent",
@@ -221,7 +221,10 @@ class ActionAgent:
     def process_task(db: Session, tx: Transaction, classification: str, score: float) -> Dict[str, Any]:
         old_status = tx.status
         
-        # Threshold Routing
+        # Threshold Routing:
+        # - LOW risk (Score < 40.0, Safe classification) -> APPROVE (Automatic approval)
+        # - MEDIUM risk (Score 40.0 - 74.9, Suspicious classification) -> MONITOR (Release payment but alert)
+        # - HIGH risk (Score >= 75.0, High Risk classification) -> ESCALATE / HOLD (Suspend payment for manual review)
         if classification == "Safe":
             new_status = "Approved"
             action = "APPROVE"

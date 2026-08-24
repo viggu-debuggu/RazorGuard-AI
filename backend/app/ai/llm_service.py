@@ -58,45 +58,64 @@ class LLMService:
 
 
 def _generate_mock_explanation(prompt: str) -> str:
-    """Synthesizes a realistic, grounded mock markdown explanation if LLM provider is offline."""
-    # Look for transaction details in prompt via regex
-    amount_match = re.search(r"Amount:\s*INR\s*([\d\.]+)", prompt, re.IGNORECASE)
-    amount = float(amount_match.group(1)) if amount_match else 250000.0
+    """Synthesizes a structured, evidence-driven markdown explanation from risk metrics and agent findings."""
+    # 1. Parse prompt variables using regular expressions
+    tx_id_match = re.search(r"Transaction ID:\s*(\S+)", prompt, re.IGNORECASE)
+    tx_id = tx_id_match.group(1) if tx_id_match else "Unknown"
     
-    # Simple keyword checking
-    is_high_risk = "high risk" in prompt.lower() or amount > 100000.0
+    user_id_match = re.search(r"User ID:\s*(\S+)", prompt, re.IGNORECASE)
+    user_id = user_id_match.group(1) if user_id_match else "Unknown"
     
-    if is_high_risk:
-        return (
-            "### 🧠 Intelligent Grounded AI Risk Briefing\n\n"
-            "#### Executive Summary\n"
-            "This transaction has been flagged as **High Risk** due to critical violations matching "
-            "standard anti-fraud compliance rules.\n\n"
-            "#### Detected Risk Indicators & Contributing Factors\n"
-            "1. **Rule Violations**: The payment amount breaches normal threshold limitations. "
-            "Geographic country mismatches indicate possible spoofing.\n"
-            "2. **Behavioral Patterns**: Velocity check shows multiple transaction attempts within a narrow timeframe.\n"
-            "3. **Payment Graph overlaps**: 3-hop graph walk indicates this device fingerprint is shared across "
-            "multiple distinct customer account IDs, marking it as a signature of compromised hardware.\n\n"
-            "#### Compliance Policy Citations\n"
-            "According to regulatory compliance standards, Card-Not-Present transactions exceeding soft limits "
-            "must undergo Multi-Factor Authentication: \n"
-            "* **Regulation**: `PSD2 Directive Art. 97` (Strong Customer Authentication standard)\n"
-            "* **Clause**: `SOP-CNP-08` - Card-Not-Present high value limits require immediate step-up authentication.\n\n"
-            "#### Recommended Actions\n"
-            "🚨 **Hold and Escalate**: Retain transaction state as **Escalated**, request credit card provider verification, "
-            "and suspend user account credentials until manual analyst override is completed."
-        )
+    amount_match = re.search(r"Amount:\s*([^\n]+)", prompt, re.IGNORECASE)
+    amount = amount_match.group(1).strip() if amount_match else "Unknown"
+    
+    score_match = re.search(r"Calculated Score:\s*([\d\.]+)%", prompt, re.IGNORECASE)
+    score = score_match.group(1) if score_match else "0.0"
+    
+    class_match = re.search(r"Risk Classification:\s*([a-zA-Z\s]+)", prompt, re.IGNORECASE)
+    classification = class_match.group(1).strip() if class_match else "Safe"
+    
+    # Extract agent evidence inputs
+    tx_rules = "No flags detected."
+    tx_rules_match = re.search(r"- Transaction Rules:\s*([^\n]+)", prompt, re.IGNORECASE)
+    if tx_rules_match:
+        tx_rules = tx_rules_match.group(1).strip()
+        
+    behavior_history = "No velocity spike or ticket size deviation."
+    behavior_history_match = re.search(r"- Behavior History:\s*([^\n]+)", prompt, re.IGNORECASE)
+    if behavior_history_match:
+        behavior_history = behavior_history_match.group(1).strip()
+        
+    network_graph = "Isolated account, no device or IP sharing overlaps."
+    network_graph_match = re.search(r"- Network Graph walks:\s*([^\n]+)", prompt, re.IGNORECASE)
+    if network_graph_match:
+        network_graph = network_graph_match.group(1).strip()
+        
+    policy_evidence = "No policy violations found."
+    policy_evidence_match = re.search(r"- Compliance Policy:\s*([^\n]+)", prompt, re.IGNORECASE)
+    if policy_evidence_match:
+        policy_evidence = policy_evidence_match.group(1).strip()
+
+    # Determine recommended action based on classification
+    if classification == "High Risk":
+        action = "ESCALATE (Suspends transaction state pending manual review)"
+    elif classification == "Suspicious":
+        action = "MONITOR (Permits processing but enqueues review alert)"
     else:
-        return (
-            "### 🧠 Intelligent Grounded AI Risk Briefing\n\n"
-            "#### Executive Summary\n"
-            "This transaction has been classified as **Safe** and cleared for automatic processing.\n\n"
-            "#### Contributing Factors\n"
-            "* **Rules & Geolocation**: All parameters are within normal baseline thresholds. Billing and card country match.\n"
-            "* **Behavioral History**: Spending velocity matches the customer's average transaction metrics.\n"
-            "* **Topological Graph Links**: Device and IP are isolated and linked only to a single account.\n\n"
-            "#### Recommended Actions\n"
-            "✅ **Auto Approve**: No manual analyst review required."
-        )
+        action = "APPROVE (Automatic approval processed)"
+
+    # 2. Build structured markdown briefing
+    return (
+        f"### Risk Summary\n"
+        f"Transaction {tx_id} for user {user_id} valued at {amount} evaluates as **{classification}** "
+        f"with a deterministic risk score of {score}%.\n\n"
+        f"### Key Factors\n"
+        f"- **Transaction Rules:** {tx_rules}\n"
+        f"- **Behavioral History:** {behavior_history}\n"
+        f"- **Network Relationships:** {network_graph}\n\n"
+        f"### Policy Evidence\n"
+        f"{policy_evidence}\n\n"
+        f"### Recommended Action\n"
+        f"{action}"
+    )
 

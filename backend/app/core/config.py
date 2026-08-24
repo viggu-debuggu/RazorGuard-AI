@@ -41,7 +41,8 @@ class Settings(BaseSettings):
             if self.ENVIRONMENT == "production":
                 raise ValueError("CRITICAL SECURITY ERROR: SECRET_KEY environment variable is not configured for production mode!")
             else:
-                self.SECRET_KEY = "insecure-development-fallback-key-should-be-replaced-in-env"
+                import secrets
+                self.SECRET_KEY = secrets.token_hex(32)
         return self
         
 
