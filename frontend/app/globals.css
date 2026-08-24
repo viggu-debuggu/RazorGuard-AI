@@ -1,0 +1,202 @@
+:root {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --card-bg: rgba(24, 24, 27, 0.6);
+  --card-border: rgba(39, 39, 42, 0.6);
+  --accent: #38bdf8;       /* Razorpay Sky Blue */
+  --accent-hover: #0ea5e9;
+  --text-muted: #a1a1aa;
+  
+  --success: #10b981;      /* Emerald Green */
+  --warning: #f59e0b;      /* Amber Yellow */
+  --danger: #ef4444;       /* Rose Red */
+  
+  --sidebar-width: 240px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utility card */
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 20px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+/* Flex layout core components */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: #0c0c0e;
+  border-right: 1px solid var(--card-border);
+  padding: 20px 15px;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  height: 100vh;
+  z-index: 10;
+}
+
+.main-content {
+  margin-left: var(--sidebar-width);
+  flex-grow: 1;
+  padding: 30px 40px;
+  min-height: 100vh;
+  background: radial-gradient(circle at 80% 20%, #0c1220 0%, #09090b 100%);
+}
+
+/* Typography styles */
+h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: 25px;
+  background: linear-gradient(to right, #ffffff 30%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+/* Status pills custom designs */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-approved {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-flagged {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-escalated {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-blocked {
+  background-color: rgba(161, 161, 170, 0.15);
+  color: var(--text-muted);
+  border: 1px solid rgba(161, 161, 170, 0.3);
+}
+
+/* Custom interactive input elements */
+input, select, textarea {
+  width: 100%;
+  background: rgba(9, 9, 11, 0.8);
+  border: 1px solid var(--card-border);
+  color: var(--foreground);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+button {
+  background-color: var(--accent);
+  color: #09090b;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+button:hover {
+  background-color: var(--accent-hover);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button.secondary {
+  background-color: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--foreground);
+}
+
+button.secondary:hover {
+  background-color: rgba(39, 39, 42, 0.4);
+}
+
+/* Grid alignment tables */
+.data-table-container {
+  overflow-x: auto;
+  margin-top: 15px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--card-border);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.data-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--card-border);
+  font-size: 0.9rem;
+}
+
+.data-table tr:hover td {
+  background-color: rgba(39, 39, 42, 0.2);
+}
