@@ -58,8 +58,21 @@ class AnalystDecisionSubmit(BaseModel):
     action: str # "Approve", "Block", "Escalate"
     notes: Optional[str]
 
+class AnalystDecisionOut(BaseModel):
+    id: int
+    transaction_id: int
+    analyst_id: int
+    action: str
+    notes: Optional[str]
+    submitted_at: datetime
+    original_ai_recommendation: Optional[str] = None
+    analyst_email: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class InvestigationOut(BaseModel):
     transaction: TransactionOut
     assessment: Optional[RiskAssessmentOut]
     reasoning_steps: List[str]
     memories: List[AgentMemoryOut]
+    decisions: List[AnalystDecisionOut] = []

@@ -93,6 +93,11 @@ const NavigationShell = ({ children }) => {
             <LogOut size={16} />
             Sign Out
           </button>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "10px", marginTop: "5px" }}>
+            <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", lineHeight: "1.3", fontStyle: "italic", textAlign: "center" }}>
+              ⚠️ All transaction, customer and relationship data in this environment is synthetic and does not represent real payment activity.
+            </p>
+          </div>
         </div>
       </aside>
       

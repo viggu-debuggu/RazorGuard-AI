@@ -125,14 +125,30 @@ def get_transaction_investigation(
     assessment = db.query(RiskAssessment).filter(RiskAssessment.transaction_id == id).first()
     execution = db.query(AgentExecution).filter(AgentExecution.transaction_id == id).first()
     memories = db.query(AgentMemory).filter(AgentMemory.transaction_id == id).all()
+    decisions = db.query(AnalystDecision).filter(AnalystDecision.transaction_id == id).all()
 
     reasoning_steps = execution.reasoning_steps if execution else []
+    
+    # Map decisions to include analyst email
+    decisions_out = []
+    for d in decisions:
+        decisions_out.append({
+            "id": d.id,
+            "transaction_id": d.transaction_id,
+            "analyst_id": d.analyst_id,
+            "action": d.action,
+            "notes": d.notes,
+            "submitted_at": d.submitted_at,
+            "original_ai_recommendation": d.original_ai_recommendation,
+            "analyst_email": d.analyst.email if d.analyst else "Unknown Analyst"
+        })
     
     return {
         "transaction": tx,
         "assessment": assessment,
         "reasoning_steps": reasoning_steps,
-        "memories": memories
+        "memories": memories,
+        "decisions": decisions_out
     }
 
 
@@ -165,12 +181,13 @@ def submit_analyst_decision(
             detail=f"Invalid action payload '{payload.action}'. Select Approve, Block, or Escalate."
         )
 
-    # Save analyst decision override
+    # Save analyst decision override, persisting the original status as recommendation
     decision = AnalystDecision(
         transaction_id=tx.id,
         analyst_id=current_user.id,
         action=payload.action,
-        notes=payload.notes
+        notes=payload.notes,
+        original_ai_recommendation=tx.status
     )
     db.add(decision)
 

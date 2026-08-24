@@ -126,6 +126,7 @@ def upgrade() -> None:
     sa.Column('analyst_id', sa.Integer(), nullable=False),
     sa.Column('action', sa.String(length=50), nullable=False),
     sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('original_ai_recommendation', sa.String(length=50), nullable=True),
     sa.Column('submitted_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['analyst_id'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['transaction_id'], ['transactions.id'], ondelete='CASCADE'),

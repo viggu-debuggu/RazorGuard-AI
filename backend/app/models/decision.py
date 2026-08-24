@@ -17,6 +17,7 @@ class AnalystDecision(Base):
     # Decisions: "Approve", "Block", "Escalate"
     action = Column(String(50), nullable=False)
     notes = Column(Text, nullable=True) # Text reasoning submitted by the analyst
+    original_ai_recommendation = Column(String(50), nullable=True)
     
     submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

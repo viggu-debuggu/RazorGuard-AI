@@ -21,6 +21,17 @@ RazorGuard AI resolves these limitations by separating the scoring logic from ex
 
 ---
 
+## Why this fits the AI Risk Manager track
+
+RazorGuard AI is built to demonstrate concrete solutions for transaction risk evaluation under the Buildathon **AI Risk Manager** track guidelines:
+- **Fragmented Signal Ingestion**: Integrates ML anomalies, transaction rules, customer velocity logs, hardware graphs, and policy vector caches into a single risk profile.
+- **AI-Assisted Investigation**: Synthesizes agent evidence and grounding regulatory clauses into an analyst-oriented explainable briefing, cutting review cycle times.
+- **Deterministic Risk Engine**: Restricts the LLM to explanatory logic, keeping composite scoring consistent and mathematically auditable.
+- **Human-in-the-Loop Override**: Persists full audit trails for override decisions (original recommendation, final analyst decision, notes, timestamps, analyst emails).
+- **Graceful Failure Fallbacks**: Implements SQLite in-memory cosine fallback calculations and fallback mock structures if remote APIs are unavailable.
+
+---
+
 ## 4. Architecture
 
 ```
@@ -110,12 +121,24 @@ Transactions with high composite scores are enqueued as **Escalated** (suspended
 
 ---
 
-## 10. Demo Scenario (TXN-92817)
-To run the complete workflow, seed the database. It contains `TXN-92817` representing a credit card takeover scenario:
-- **Customer:** `CUST-7821` (historical average ticket size is ₹1,800).
-- **Transaction:** ₹85,000 Card-Not-Present payment.
-- **Risk Indicators:** Unseen device, IN billing vs US card geographic mismatch, 4 blocked attempts in under 6 minutes, and device fingerprint shared with 3 suspect accounts.
-- **Calculated Composite Score:** ~87% (High Risk - Escalated status).
+## 10. Demo Scenarios
+
+The sandbox environment contains three reproducible scenarios designed to show how different inputs change the derived evidence and deterministic outcomes. Seed the database and login as `analyst@razorguard.ai` (password: `password`) to investigate:
+
+### Scenario A: LOW RISK (Transaction ID: `TXN-10021`)
+- **Profile**: INR 1,200 food merchant payment for user `usr_safe_01`.
+- **Key Signals**: Matches card and billing locations, card-present payment, and zero device sharing.
+- **Expected Outcome**: LOW risk score, status `Approved`, Recommended Action: `APPROVE`.
+
+### Scenario B: MEDIUM RISK (Transaction ID: `TXN-40293`)
+- **Profile**: INR 65,000 electronics payment for user `usr_suspicious_02`.
+- **Key Signals**: Geographic location mismatch (IN billing vs US card) and Card-Not-Present high value threshold violated.
+- **Expected Outcome**: MEDIUM risk score, status `Approved` (with warning), Recommended Action: `MONITOR`.
+
+### Scenario C: HIGH RISK (Transaction ID: `TXN-92817` - Hero Scenario)
+- **Profile**: INR 85,000 payment for user `CUST-7821` (historical average is INR 1,800).
+- **Key Signals**: Previously unseen device, location mismatch, 4 blocked attempts in under 6 minutes, and device fingerprint shared across 3 suspect accounts.
+- **Expected Outcome**: HIGH risk score (~87%), status `Escalated`, Recommended Action: `ESCALATE / HOLD`.
 
 ---
 

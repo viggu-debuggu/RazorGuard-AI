@@ -43,7 +43,7 @@ POLICY_DOCUMENTS = [
 # Synthetic transactions to seed
 MOCK_TRANSACTIONS = [
     {
-        "transaction_id": "pay_safe_8801",
+        "transaction_id": "TXN-10021",
         "user_id": "usr_safe_01",
         "amount": 1200.0,
         "currency": "INR",
@@ -54,11 +54,11 @@ MOCK_TRANSACTIONS = [
         "card_present": True,
         "merchant_id": "mer_razor_food_1",
         "merchant_category": "food",
-        "status": "Approved",
-        "risk_score": 12.0
+        "status": "Pending",
+        "risk_score": 0.0
     },
     {
-        "transaction_id": "pay_suspicious_2004",
+        "transaction_id": "TXN-40293",
         "user_id": "usr_suspicious_02",
         "amount": 65000.0,
         "currency": "INR",
@@ -70,7 +70,7 @@ MOCK_TRANSACTIONS = [
         "merchant_id": "mer_razor_electronics_4",
         "merchant_category": "electronics",
         "status": "Pending",
-        "risk_score": 62.0
+        "risk_score": 0.0
     },
     {
         "transaction_id": "pay_fraud_9901",
@@ -404,8 +404,14 @@ def seed_database():
 
         db.commit()
         
-        # 6. Run agent pipeline on the primary demo transaction to generate assessment, reasoning steps, and memories
-        print("Running agent pipeline on primary demo transaction TXN-92817...")
+        # 6. Run agent pipeline on the three reproducible scenarios to generate assessments, reasoning steps, and memories
+        print("Running agent pipeline on Scenario A: LOW RISK (TXN-10021)...")
+        AgentOrchestrator.run_investigation(db, "TXN-10021")
+        
+        print("Running agent pipeline on Scenario B: MEDIUM RISK (TXN-40293)...")
+        AgentOrchestrator.run_investigation(db, "TXN-40293")
+        
+        print("Running agent pipeline on Scenario C: HIGH RISK (TXN-92817)...")
         AgentOrchestrator.run_investigation(db, "TXN-92817")
         db.commit()
         

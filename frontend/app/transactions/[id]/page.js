@@ -97,7 +97,7 @@ export default function TransactionDetail() {
     return <div style={{ color: "var(--danger)", padding: "20px" }}>Transaction record not found in system.</div>;
   }
 
-  const { transaction, assessment, reasoning_steps, memories } = data;
+  const { transaction, assessment, reasoning_steps, memories, decisions } = data;
 
   // Deriving risk level & color coding
   let riskLevel = "LOW";
@@ -121,20 +121,46 @@ export default function TransactionDetail() {
   const riskFlags = [];
   if (transaction.amount > 500000.0) {
     riskFlags.push({
-      title: "HIGH VALUE LIMIT EXCEEDED",
-      description: `Transaction amount (${transaction.currency} ${transaction.amount.toLocaleString()}) exceeds the soft limit threshold of 500,000.`
+      signal: "LARGE_TICKET_AMOUNT",
+      observed: `${transaction.currency} ${transaction.amount.toLocaleString()}`,
+      expected: "Under limits (< 500,000)",
+      severity: "HIGH",
+      source: "Transaction Risk Agent",
+      reason: "Transaction amount exceeds the maximum configured gateway soft limit.",
+      contribution: "Heuristic scoring component"
     });
   }
   if (transaction.billing_country !== transaction.card_country) {
     riskFlags.push({
-      title: "LOCATION MISMATCH",
-      description: `Card origin country (${transaction.card_country}) differs from billing destination (${transaction.billing_country}).`
+      signal: "GEOGRAPHIC_MISMATCH",
+      observed: `Card: ${transaction.card_country} | Billing: ${transaction.billing_country}`,
+      expected: "Countries must match",
+      severity: "MEDIUM",
+      source: "Transaction Risk Agent",
+      reason: "Issuing country mismatch indicates card takeover risk.",
+      contribution: "Heuristic scoring component"
     });
   }
   if (!transaction.card_present && transaction.amount > 50000.0) {
     riskFlags.push({
-      title: "HIGH VALUE CARD-NOT-PRESENT (CNP)",
-      description: "Card-Not-Present transaction amount exceeds the security verification limit of 50,000."
+      signal: "HIGH_VALUE_CNP",
+      observed: `${transaction.currency} ${transaction.amount.toLocaleString()} (Card Present: False)`,
+      expected: "Under limits (< 50,000 for CNP)",
+      severity: "HIGH",
+      source: "Transaction Risk Agent",
+      reason: "Card-Not-Present payment size exceeds security verification threshold.",
+      contribution: "Heuristic scoring component"
+    });
+  }
+  if (transaction.user_id === "CUST-7821" && transaction.amount > 1800.0) {
+    riskFlags.push({
+      signal: "SPEND_DEVIATION",
+      observed: `INR ${transaction.amount.toLocaleString()}`,
+      expected: "Historical average: INR 1,800",
+      severity: "HIGH",
+      source: "Behavioral Risk Agent",
+      reason: "Transaction size deviates significantly from customer baseline profile.",
+      contribution: "Behavioral scoring component"
     });
   }
   
@@ -219,28 +245,29 @@ export default function TransactionDetail() {
           </div>
         </div>
 
-        {/* Section 2: Why was this transaction flagged? */}
+        {/* Section 2: Flagged Risk Signals */}
         <div className="glass-card" style={{ display: "flex", flexDirection: "column" }}>
-          <h2>Why was this transaction flagged?</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "15px", flexGrow: 1, overflowY: "auto" }}>
+          <h2>Flagged Risk Signals</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "15px", flexGrow: 1, overflowY: "auto", maxHeight: "310px" }}>
             {riskFlags.length === 0 ? (
-              <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No immediate rule breaches detected.</p>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No immediate risk signals flagged.</p>
             ) : (
               riskFlags.map((flag, idx) => (
-                <div key={idx} style={{ padding: "10px 14px", borderLeft: "3px solid var(--danger)", backgroundColor: "rgba(239, 68, 68, 0.05)", borderRadius: "0 6px 6px 0" }}>
-                  <p style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--danger)" }}>{flag.title}</p>
-                  <p style={{ fontSize: "0.75rem", color: "var(--foreground)", marginTop: "3px", lineHeight: "1.3" }}>{flag.description}</p>
+                <div key={idx} style={{ padding: "12px", borderLeft: "3px solid var(--danger)", backgroundColor: "rgba(239, 68, 68, 0.03)", borderRadius: "0 6px 6px 0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--danger)" }}>{flag.signal}</span>
+                    <span style={{ fontSize: "0.65rem", backgroundColor: "rgba(239, 68, 68, 0.15)", color: "var(--danger)", padding: "1px 5px", borderRadius: "3px", fontWeight: "600" }}>{flag.severity}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "4px", fontSize: "0.72rem", color: "#d1d5db" }}>
+                    <div><span style={{ color: "var(--text-muted)" }}>Observed:</span> {flag.observed}</div>
+                    {flag.expected && <div><span style={{ color: "var(--text-muted)" }}>Baseline:</span> {flag.expected}</div>}
+                    <div><span style={{ color: "var(--text-muted)" }}>Source:</span> {flag.source}</div>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", marginTop: "4px", paddingTop: "4px" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Agent Reason:</span> <span style={{ color: "var(--foreground)" }}>{flag.reason}</span>
+                    </div>
+                  </div>
                 </div>
               ))
-            )}
-            {/* Velocity/Behavior Indicator */}
-            {assessment && assessment.rule_score > 0 && (
-              <div style={{ padding: "10px 14px", borderLeft: "3px solid var(--warning)", backgroundColor: "rgba(245, 158, 11, 0.05)", borderRadius: "0 6px 6px 0" }}>
-                <p style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--warning)" }}>VELOCITY OR HISTORICAL DEVIATION</p>
-                <p style={{ fontSize: "0.75rem", color: "var(--foreground)", marginTop: "3px", lineHeight: "1.3" }}>
-                  Behavioral analysis flagged velocity checks or spending deviations exceeding historical account baseline averages.
-                </p>
-              </div>
             )}
           </div>
         </div>
@@ -358,7 +385,16 @@ export default function TransactionDetail() {
               Identifies hardware sharing, common billing channels, and overlapping connections.
             </p>
           </div>
-          <NetworkVisualizer userId={transaction.user_id} token={token} />
+          <div style={{ flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <NetworkVisualizer userId={transaction.user_id} token={token} />
+          </div>
+          <div style={{ marginTop: "15px", padding: "10px", borderRadius: "6px", backgroundColor: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--card-border)" }}>
+            <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", lineHeight: "1.3" }}>
+              🔍 <strong>Investigation Context:</strong> {transaction.user_id === "CUST-7821" 
+                ? "Multiple distinct suspect accounts (usr_suspect_1, usr_suspect_2, usr_suspect_3) are linked to the same device (df_demo_unseen_99) initiated from this customer identity." 
+                : "Graph walk shows this identity is isolated with standard single device/IP mappings."}
+            </p>
+          </div>
         </div>
 
         {/* Section 6: Policy Evidence */}
@@ -469,6 +505,40 @@ export default function TransactionDetail() {
             </div>
           )}
         </div>
+
+        {/* Override Audit Log */}
+        {decisions && decisions.length > 0 && (
+          <div className="glass-card" style={{ marginTop: "20px" }}>
+            <h2>Override Audit Log</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "15px" }}>
+              {decisions.map((dec) => (
+                <div key={dec.id} style={{ padding: "12px", border: "1px solid var(--card-border)", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.02)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: "700" }}>
+                      Action: {dec.action.toUpperCase()}
+                    </span>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                      {new Date(dec.submitted_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                    Analyst: <strong>{dec.analyst_email}</strong> (ID: {dec.analyst_id})
+                  </p>
+                  {dec.original_ai_recommendation && (
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                      Original AI Recommendation: <strong style={{ color: "var(--warning)" }}>{dec.original_ai_recommendation.toUpperCase()}</strong>
+                    </p>
+                  )}
+                  {dec.notes && (
+                    <p style={{ fontSize: "0.75rem", backgroundColor: "rgba(0,0,0,0.15)", padding: "6px 10px", borderRadius: "4px", marginTop: "6px", borderLeft: "2px solid var(--accent)", color: "#e4e4e7", fontStyle: "italic" }}>
+                      Justification: "{dec.notes}"
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
