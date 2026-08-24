@@ -103,7 +103,7 @@ def upgrade() -> None:
     sa.Column('uuid', sa.String(length=36), nullable=False),
     sa.Column('transaction_id', sa.Integer(), nullable=False),
     sa.Column('agents_used', sa.Text(), nullable=False),
-    sa.Column('reasoning_steps', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False),
+    sa.Column('reasoning_steps', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=False),
     sa.Column('evidence_retrieved', sa.Text(), nullable=True),
     sa.Column('duration', sa.Float(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),

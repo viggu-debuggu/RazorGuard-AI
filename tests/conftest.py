@@ -1,8 +1,10 @@
 import os
 import pytest
+import tempfile
 
 # Configure testing environment variables before importing app
-os.environ["DATABASE_URL"] = "sqlite:///./test_temp.db"
+DB_FILE_PATH = os.path.join(tempfile.gettempdir(), "razorguard_test_temp.db")
+os.environ["DATABASE_URL"] = f"sqlite:///{DB_FILE_PATH}"
 os.environ["ENVIRONMENT"] = "development"
 os.environ["LLM_PROVIDER"] = "mock"
 
@@ -24,9 +26,9 @@ def setup_test_db():
     yield
     Base.metadata.drop_all(bind=engine)
     # Clean up local SQLite db file
-    if os.path.exists("./test_temp.db"):
+    if os.path.exists(DB_FILE_PATH):
         try:
-            os.remove("./test_temp.db")
+            os.remove(DB_FILE_PATH)
         except PermissionError:
             pass
 
