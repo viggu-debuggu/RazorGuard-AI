@@ -31,7 +31,7 @@ const NavigationShell = ({ children }) => {
   }
 
   const navItems = [
-    { name: "Risk Dashboard", path: "/", icon: <LayoutDashboard size={20} /> },
+    { name: "Risk Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
     { name: "Transactions Queue", path: "/transactions", icon: <ListTodo size={20} /> },
     { name: "Network Graph", path: "/graph", icon: <Share2 size={20} /> },
     { name: "Compliance Policies", path: "/policies", icon: <FileText size={20} /> },

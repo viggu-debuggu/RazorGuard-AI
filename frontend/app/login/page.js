@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     if (user) {
-      router.push("/");
+      router.push("/dashboard");
     }
   }, [user]);
 
@@ -25,7 +25,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       setError(err.message || "Failed to log in.");
     } finally {
