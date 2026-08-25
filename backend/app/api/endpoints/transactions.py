@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
 from app.database.session import get_db
 from app.api.dependencies.auth import get_current_user
 from app.models.user import User
@@ -9,12 +10,16 @@ from app.models.transaction import Transaction
 from app.models.risk_assessment import RiskAssessment
 from app.models.agent import AgentExecution, AgentMemory
 from app.models.decision import AnalystDecision
+from app.models.evidence import Evidence
+from app.models.audit_log import AuditLog
+from app.models.graph import GraphEdge
 from app.schemas.transaction import (
     TransactionCreate,
     TransactionOut,
     InvestigationOut,
     AnalystDecisionSubmit,
-    AnalystEfficiencyOut
+    AnalystEfficiencyOut,
+    DashboardMetricsOut
 )
 from app.services.agent_orchestrator import AgentOrchestrator
 from app.core.logging import logger
@@ -162,6 +167,84 @@ def get_analyst_efficiency_metrics(
     }
 
 
+@router.get("/metrics/dashboard", response_model=DashboardMetricsOut)
+def get_dashboard_metrics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns real, calculated statistics and data monitoring health indicators from the DB.
+    """
+    # 1. Total processed today (since start of day)
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    processed_today = db.query(Transaction).filter(Transaction.timestamp >= today_start).count()
+
+    # 2. Count by statuses
+    auto_approved = db.query(Transaction).filter(Transaction.status == "Approved").count()
+    awaiting_review = db.query(Transaction).filter(Transaction.status == "Escalated").count()
+    blocked = db.query(Transaction).filter(Transaction.status == "Blocked").count()
+
+    # 3. Avg risk score
+    avg_score_val = db.query(func.avg(Transaction.risk_score)).scalar()
+    avg_risk_score = float(avg_score_val) if avg_score_val is not None else 0.0
+
+    # 4. Latency
+    avg_lat_val = db.query(func.avg(AgentExecution.duration)).scalar()
+    latency_trend_seconds = float(avg_lat_val) if avg_lat_val is not None else 0.0
+
+    # 5. Graph relationships count
+    graph_relationships_count = db.query(GraphEdge).count()
+
+    # 6. Rule trigger frequencies
+    rule_trigger_frequency = {
+        "LARGE_TICKET_AMOUNT": db.query(Evidence).filter(Evidence.description.like("%LARGE_TICKET_AMOUNT%")).count(),
+        "GEOGRAPHIC_MISMATCH": db.query(Evidence).filter(Evidence.category == "geographic_mismatch").count(),
+        "HIGH_VALUE_CNP": db.query(Evidence).filter(Evidence.description.like("%HIGH_VALUE_CNP%")).count(),
+        "VELOCITY_SPIKE_1H": db.query(Evidence).filter(Evidence.category == "velocity").count(),
+        "TICKET_SIZE_DEVIATION": db.query(Evidence).filter(Evidence.description.like("%TICKET_SIZE_DEVIATION%")).count(),
+        "UNPROFILED_LARGE_SUM": db.query(Evidence).filter(Evidence.description.like("%UNPROFILED_LARGE_SUM%")).count(),
+    }
+
+    # 7. Volume trend for last 24 hours (grouped by hour)
+    volume_trend = []
+    now = datetime.utcnow()
+    for h in range(24):
+        target_hour = now - timedelta(hours=23 - h)
+        hour_start = target_hour.replace(minute=0, second=0, microsecond=0)
+        hour_end = hour_start + timedelta(hours=1)
+        
+        # Ingested count
+        vol = db.query(Transaction).filter(
+            Transaction.timestamp >= hour_start,
+            Transaction.timestamp < hour_end
+        ).count()
+
+        # Risk events (Suspicious / High risk classification count today)
+        risk = db.query(Transaction).filter(
+            Transaction.timestamp >= hour_start,
+            Transaction.timestamp < hour_end,
+            Transaction.risk_score >= 40.0
+        ).count()
+
+        volume_trend.append({
+            "time": hour_start.strftime("%H:%M"),
+            "volume": vol,
+            "risk": risk
+        })
+
+    return {
+        "processed_today": processed_today,
+        "auto_approved": auto_approved,
+        "awaiting_review": awaiting_review,
+        "blocked": blocked,
+        "avg_risk_score": avg_risk_score,
+        "volume_trend": volume_trend,
+        "rule_trigger_frequency": rule_trigger_frequency,
+        "graph_relationships_count": graph_relationships_count,
+        "latency_trend_seconds": latency_trend_seconds
+    }
+
+
 @router.get("/{id}", response_model=TransactionOut)
 def get_transaction_details(
     id: int, 
@@ -196,8 +279,23 @@ def get_transaction_investigation(
     execution = db.query(AgentExecution).filter(AgentExecution.transaction_id == id).first()
     memories = db.query(AgentMemory).filter(AgentMemory.transaction_id == id).all()
     decisions = db.query(AnalystDecision).filter(AnalystDecision.transaction_id == id).all()
+    evidences = db.query(Evidence).filter(Evidence.transaction_id == id).all()
+    audit_logs = db.query(AuditLog).filter(AuditLog.transaction_id == id).order_by(AuditLog.timestamp.asc()).all()
 
-    reasoning_steps = execution.reasoning_steps if execution else []
+    raw_steps = execution.reasoning_steps if execution else []
+    reasoning_steps = []
+    
+    for step in raw_steps:
+        if isinstance(step, dict):
+            reasoning_steps.append(step)
+        else:
+            # Fallback wrapper for old string steps
+            reasoning_steps.append({
+                "timestamp": tx.timestamp.isoformat() + "Z",
+                "event": "orchestrator_log",
+                "description": str(step),
+                "agent": "Orchestrator"
+            })
     
     # Map decisions to include analyst email
     decisions_out = []
@@ -218,6 +316,8 @@ def get_transaction_investigation(
         "assessment": assessment,
         "reasoning_steps": reasoning_steps,
         "memories": memories,
+        "evidences": evidences,
+        "audit_logs": audit_logs,
         "decisions": decisions_out
     }
 
@@ -251,19 +351,57 @@ def submit_analyst_decision(
             detail=f"Invalid action payload '{payload.action}'. Select Approve, Block, or Escalate."
         )
 
-    # Save analyst decision override, persisting the original status as recommendation
+    original_rec = tx.status
+
+    # Capture evidence snapshot for auditability
+    evs = db.query(Evidence).filter(Evidence.transaction_id == tx.id).all()
+    evidence_snapshot = []
+    for e in evs:
+        evidence_snapshot.append({
+            "evidence_id": e.evidence_id,
+            "category": e.category,
+            "severity": e.severity,
+            "value": e.value,
+            "description": e.description,
+            "source": e.source,
+            "confidence": e.confidence,
+            "timestamp": e.timestamp.isoformat()
+        })
+
+    # Save analyst decision override, persisting score and evidence snapshot
     decision = AnalystDecision(
         transaction_id=tx.id,
         analyst_id=current_user.id,
         action=payload.action,
         notes=payload.notes,
-        original_ai_recommendation=tx.status
+        original_ai_recommendation=original_rec,
+        risk_score_at_decision_time=tx.risk_score,
+        evidence_snapshot=evidence_snapshot
     )
     db.add(decision)
 
     # Update transaction status
     tx.status = action_status
     db.add(tx)
+
+    # Write to AuditLog
+    event_name = "decision_overridden" if action_status != original_rec else "analyst_reviewed"
+    audit_desc = f"Analyst override committed. Final status transitioned from '{original_rec}' to '{action_status}' with notes: \"{payload.notes}\"."
+    
+    log = AuditLog(
+        transaction_id=tx.id,
+        event=event_name,
+        description=audit_desc,
+        actor=f"Analyst: {current_user.email}",
+        timestamp=datetime.utcnow(),
+        metadata_json={
+            "action": payload.action,
+            "previous_status": original_rec,
+            "new_status": action_status,
+            "risk_score": tx.risk_score
+        }
+    )
+    db.add(log)
     db.commit()
     db.refresh(tx)
 

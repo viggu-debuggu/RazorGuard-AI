@@ -61,17 +61,19 @@ export default function DashboardHome() {
       .then((data) => {
         if (Array.isArray(data)) {
           setEscalations(data.slice(0, 6));
-          setMetrics({
-            total: 1280,
-            approved: 1154,
-            flagged: data.length,
-            blocked: 42,
-          });
         }
+      })
+      .catch(() => {});
+
+    fetch(`${API_URL}/api/v1/transactions/metrics/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setMetrics(data);
         setLoadingMetrics(false);
       })
       .catch(() => {
-        setMetrics({ total: 1280, approved: 1154, flagged: 0, blocked: 42 });
         setLoadingMetrics(false);
       });
 
@@ -104,7 +106,7 @@ export default function DashboardHome() {
       </div>
 
       {/* Metrics Row */}
-      {loadingMetrics ? (
+      {loadingMetrics || !metrics ? (
         <MetricsSkeleton />
       ) : (
         <div
@@ -116,9 +118,9 @@ export default function DashboardHome() {
           }}
         >
           {[
-            { label: "Processed Today", value: metrics.total, color: "var(--fg)" },
-            { label: "Auto-Approved", value: metrics.approved, color: "var(--risk-safe)" },
-            { label: "Awaiting Review", value: metrics.flagged, color: "var(--risk-warn)" },
+            { label: "Processed Today", value: metrics.processed_today, color: "var(--fg)" },
+            { label: "Auto-Approved", value: metrics.auto_approved, color: "var(--risk-safe)" },
+            { label: "Awaiting Review", value: metrics.awaiting_review, color: "var(--risk-warn)" },
             { label: "Blocked", value: metrics.blocked, color: "var(--risk-high)" },
           ].map(({ label, value, color }) => (
             <div key={label} className="panel" style={{ padding: "12px 14px" }}>
@@ -208,14 +210,14 @@ export default function DashboardHome() {
 
       {/* Chart + Escalation Queue */}
       <div
-        style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}
+        style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px", marginBottom: "20px" }}
       >
         {/* Sparkline Chart */}
         <div className="panel">
           <h2>Payment Volume vs. Risk Events</h2>
           <div style={{ width: "100%", height: "220px", marginTop: "8px" }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={MOCK_CHART_DATA} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <LineChart data={metrics?.volume_trend || MOCK_CHART_DATA} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke="var(--border-subtle)" />
                 <XAxis
                   dataKey="time"
@@ -359,6 +361,50 @@ export default function DashboardHome() {
                 );
               })
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Data Monitoring Section */}
+      <h2 style={{ fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--fg-muted)", marginBottom: "10px", marginTop: "16px" }}>
+        Data Monitoring & Rule Health
+      </h2>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }}>
+        <div className="panel">
+          <h2>Rule Trigger Frequencies</h2>
+          {metrics?.rule_trigger_frequency ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
+              {Object.entries(metrics.rule_trigger_frequency).map(([rule, count]) => (
+                <div key={rule} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "4px" }}>
+                  <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--fg)" }}>{rule}</span>
+                  <span className="tabular" style={{ fontSize: "0.75rem", fontWeight: "700", color: count > 0 ? "var(--risk-warn)" : "var(--fg-dim)" }}>{count} triggers</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: "0.75rem", color: "var(--fg-dim)", marginTop: "10px" }}>Insufficient data</p>
+          )}
+        </div>
+
+        <div className="panel">
+          <h2>System Telemetry & Data Health</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px", marginTop: "10px", fontSize: "0.8rem" }}>
+            <div>
+              <p style={{ color: "var(--fg-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "2px" }}>Graph Relationships</p>
+              <p style={{ fontSize: "0.95rem", fontWeight: "600" }}>{metrics?.graph_relationships_count?.toLocaleString() || "0"} nodes/edges</p>
+            </div>
+            <div>
+              <p style={{ color: "var(--fg-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "2px" }}>Avg Risk Score</p>
+              <p style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--accent-text)" }}>{metrics?.avg_risk_score?.toFixed(1) || "0.0"}%</p>
+            </div>
+            <div>
+              <p style={{ color: "var(--fg-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "2px" }}>Avg Latency Speed</p>
+              <p style={{ fontSize: "0.95rem", fontWeight: "600" }}>{metrics?.latency_trend_seconds?.toFixed(2) || "0.00"}s</p>
+            </div>
+            <div>
+              <p style={{ color: "var(--fg-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "2px" }}>Data Drift Status</p>
+              <p style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--risk-safe)" }}>Stable (Stable)</p>
+            </div>
           </div>
         </div>
       </div>

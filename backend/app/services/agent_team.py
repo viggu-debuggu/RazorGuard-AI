@@ -14,21 +14,49 @@ class TransactionRiskAgent:
     def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
         violations = []
         evidence_logs = []
+        structured_evidences = []
         
         # Rule 1: High transaction amount check
         if tx.amount > 500000.0:
             violations.append("LARGE_TICKET_AMOUNT")
             evidence_logs.append("[LARGE_TICKET_AMOUNT] Transaction amount exceeds maximum soft limit of INR 500,000.")
+            structured_evidences.append({
+                "category": "rule_violation",
+                "severity": "high",
+                "value": f"INR {tx.amount}",
+                "description": "Transaction amount exceeds maximum soft limit of INR 500,000.",
+                "source": "Transaction Risk Agent",
+                "confidence": 1.0,
+                "supporting_entity": tx.transaction_id
+            })
             
         # Rule 2: Country mismatch check (Card origin vs Billing)
         if tx.billing_country != tx.card_country:
             violations.append("GEOGRAPHIC_MISMATCH")
             evidence_logs.append(f"[GEOGRAPHIC_MISMATCH] Billing country '{tx.billing_country}' does not match card country '{tx.card_country}'.")
+            structured_evidences.append({
+                "category": "geographic_mismatch",
+                "severity": "medium",
+                "value": f"Billing: {tx.billing_country} vs Card: {tx.card_country}",
+                "description": f"Billing country '{tx.billing_country}' does not match card country '{tx.card_country}'.",
+                "source": "Transaction Risk Agent",
+                "confidence": 1.0,
+                "supporting_entity": tx.transaction_id
+            })
             
         # Rule 3: High amount Card-Not-Present transaction
         if not tx.card_present and tx.amount > 50000.0:
             violations.append("HIGH_VALUE_CNP")
             evidence_logs.append("[HIGH_VALUE_CNP] Card-Not-Present transaction exceeds high-risk threshold of INR 50,000.")
+            structured_evidences.append({
+                "category": "amount_deviation",
+                "severity": "high",
+                "value": f"INR {tx.amount} (CNP)",
+                "description": "Card-Not-Present transaction exceeds high-risk threshold of INR 50,000.",
+                "source": "Transaction Risk Agent",
+                "confidence": 1.0,
+                "supporting_entity": tx.transaction_id
+            })
 
         # Calculate rule score: 33.3 per violation, capped at 100.0
         rule_score = min(100.0, len(violations) * 33.3)
@@ -42,7 +70,8 @@ class TransactionRiskAgent:
             "agent_name": "Transaction Risk Agent",
             "score": float(rule_score),
             "outcome": outcome,
-            "evidence": " | ".join(evidence_logs) if evidence_logs else "No heuristic rule violations detected."
+            "evidence": " | ".join(evidence_logs) if evidence_logs else "No heuristic rule violations detected.",
+            "evidences": structured_evidences
         }
 
 
@@ -53,6 +82,7 @@ class BehavioralRiskAgent:
     def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
         violations = []
         evidence_logs = []
+        structured_evidences = []
         
         # Rule 1: Instant velocity check in the last 1 hour
         one_hour_ago = datetime.utcnow() - timedelta(hours=1)
@@ -64,6 +94,15 @@ class BehavioralRiskAgent:
         if recent_count > 5:
             violations.append("VELOCITY_SPIKE_1H")
             evidence_logs.append(f"High velocity transaction rate detected: {recent_count} payments in the last hour.")
+            structured_evidences.append({
+                "category": "velocity",
+                "severity": "high",
+                "value": f"{recent_count} payments in 1 hour",
+                "description": f"High velocity transaction rate detected: {recent_count} payments in the last hour.",
+                "source": "Behavioral Risk Agent",
+                "confidence": 1.0,
+                "supporting_entity": tx.user_id
+            })
             
         # Rule 2: Deviation from average ticket size
         # Calculate user's average past transaction amount (Approved payments only)
@@ -79,11 +118,29 @@ class BehavioralRiskAgent:
             if tx.amount > (avg_val * 3.0) and tx.amount > 10000.0:
                 violations.append("TICKET_SIZE_DEVIATION")
                 evidence_logs.append(f"Amount INR {tx.amount} is 3x greater than customer historical average of INR {avg_val:.2f}.")
+                structured_evidences.append({
+                    "category": "amount_deviation",
+                    "severity": "high",
+                    "value": f"INR {tx.amount} vs avg INR {avg_val:.2f}",
+                    "description": f"Amount INR {tx.amount} is 3x greater than customer historical average of INR {avg_val:.2f}.",
+                    "source": "Behavioral Risk Agent",
+                    "confidence": 1.0,
+                    "supporting_entity": tx.user_id
+                })
         else:
             # First transaction check: moderate risk warning for unprofiled users on large sums
             if tx.amount > 100000.0:
                 violations.append("UNPROFILED_LARGE_SUM")
                 evidence_logs.append("First transaction registered for user exceeds baseline limit of INR 100,000.")
+                structured_evidences.append({
+                    "category": "rule_violation",
+                    "severity": "medium",
+                    "value": f"INR {tx.amount}",
+                    "description": "First transaction registered for user exceeds baseline limit of INR 100,000.",
+                    "source": "Behavioral Risk Agent",
+                    "confidence": 0.8,
+                    "supporting_entity": tx.user_id
+                })
 
         behavioral_score = min(100.0, len(violations) * 50.0)
         outcome = f"Behavioral velocity analyzed. Detected anomalies: {len(violations)}."
@@ -92,12 +149,13 @@ class BehavioralRiskAgent:
             "agent_name": "Behavioral Risk Agent",
             "score": float(behavioral_score),
             "outcome": outcome,
-            "evidence": " | ".join(evidence_logs) if evidence_logs else "Customer spending velocity within normal historical bounds."
+            "evidence": " | ".join(evidence_logs) if evidence_logs else "Customer spending velocity within normal historical bounds.",
+            "evidences": structured_evidences
         }
 
 
 class FraudInvestigationAgent:
-    """Specialist performing 3-hop walks across the payment graph database to uncover shared devices/IP loops."""
+    """Specialist performing graph walking across the payment graph database to uncover shared devices/IP loops."""
     
     @staticmethod
     def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
@@ -114,9 +172,21 @@ class FraudInvestigationAgent:
         # Compute graph score: 33.3 per degree of sharing, capped at 100.0
         graph_score = min(100.0, degrees_of_sharing * 33.3)
         
+        structured_evidences = []
         if degrees_of_sharing > 0:
             outcome = f"Relational walking detected link overlaps. Overlapping accounts: {degrees_of_sharing}."
             evidence = " | ".join(shared_entities)
+            for path in paths:
+                cat = "device_relationship" if "Device" in path.get("type", "") else "account_relationship"
+                structured_evidences.append({
+                    "category": cat,
+                    "severity": "high",
+                    "value": f"Shared {path.get('type')}: {path.get('node')}",
+                    "description": f"Customer account overlaps with user account '{path.get('linked_account').split(':', 1)[1]}' via shared {path.get('type').lower()} {path.get('node').split(':', 1)[1]}.",
+                    "source": "Fraud Investigation Agent",
+                    "confidence": 1.0,
+                    "supporting_entity": path.get("node", "")
+                })
         else:
             outcome = "Graph walking completed. Node is isolated from other registered entities."
             evidence = "No shared device fingerprints or IP addresses linked to external customer accounts."
@@ -126,7 +196,8 @@ class FraudInvestigationAgent:
             "score": float(graph_score),
             "outcome": outcome,
             "evidence": evidence,
-            "paths": paths
+            "paths": paths,
+            "evidences": structured_evidences
         }
 
 
@@ -144,15 +215,28 @@ class PolicyRAGAgent:
         policy_score = 0.0
         evidence_logs = []
         citations = []
+        structured_evidences = []
         
         if matching_chunks:
             for chunk, score in matching_chunks:
                 evidence_logs.append(chunk.content[:200] + "...")
                 citations.append(f"[Source: {chunk.filename}, Index: {chunk.chunk_index}]")
                 # If policy text contains risk keywords matching the current transaction's category
+                is_trigger = False
                 if "block" in chunk.content.lower() or "requires verification" in chunk.content.lower():
                     if tx.amount > 50000.0:
                         policy_score = 100.0 # Force policy compliance review
+                        is_trigger = True
+                
+                structured_evidences.append({
+                    "category": "policy_match",
+                    "severity": "high" if is_trigger else "medium",
+                    "value": f"Similarity: {score:.1f}%",
+                    "description": f"Retrieved compliance chunk: \"{chunk.content[:220]}...\"",
+                    "source": "Policy Agent",
+                    "confidence": float(score / 100.0),
+                    "policy_reference": f"{chunk.filename} [Index: {chunk.chunk_index}]"
+                })
                         
             outcome = f"Compliance policies verified. Citations resolved: {len(citations)}."
             evidence = " | ".join(evidence_logs) + " " + " ".join(citations)
@@ -165,7 +249,8 @@ class PolicyRAGAgent:
             "score": float(policy_score),
             "outcome": outcome,
             "evidence": evidence,
-            "citations": citations
+            "citations": citations,
+            "evidences": structured_evidences
         }
 
 

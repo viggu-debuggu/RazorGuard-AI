@@ -150,26 +150,8 @@ export default function TransactionDetail() {
     return <div style={{ color: "var(--risk-high)", padding: "20px", fontSize: "0.85rem" }}>Transaction record not found in system.</div>;
   }
 
-  const { transaction, assessment, memories, decisions } = data;
+  const { transaction, assessment, memories, decisions, evidences, audit_logs } = data;
   const risk = getRiskMeta(transaction.risk_score);
-
-  // Derive risk flags
-  const riskFlags = [];
-  if (transaction.amount > 500000) {
-    riskFlags.push({ signal: "LARGE_TICKET_AMOUNT", observed: `${transaction.currency} ${transaction.amount.toLocaleString("en-IN")}`, expected: "< 500,000", severity: "HIGH", source: "Transaction Risk Agent", reason: "Transaction amount exceeds maximum gateway soft limit." });
-  }
-  if (transaction.billing_country !== transaction.card_country) {
-    riskFlags.push({ signal: "GEOGRAPHIC_MISMATCH", observed: `Card: ${transaction.card_country} | Billing: ${transaction.billing_country}`, expected: "Countries must match", severity: "MEDIUM", source: "Transaction Risk Agent", reason: "Issuing country mismatch — elevated card takeover risk." });
-  }
-  if (!transaction.card_present && transaction.amount > 50000) {
-    riskFlags.push({ signal: "HIGH_VALUE_CNP", observed: `${transaction.currency} ${transaction.amount.toLocaleString("en-IN")} (Card Not Present)`, expected: "< 50,000 for CNP", severity: "HIGH", source: "Transaction Risk Agent", reason: "Card-Not-Present payment exceeds verification threshold." });
-  }
-  if (transaction.user_id === "CUST-7821" && transaction.amount > 1800) {
-    riskFlags.push({ signal: "SPEND_DEVIATION", observed: `INR ${transaction.amount.toLocaleString("en-IN")}`, expected: "Historical avg: INR 1,800", severity: "HIGH", source: "Behavioral Risk Agent", reason: "Transaction deviates significantly from account baseline." });
-  }
-
-  const policyMemory = memories.find((m) => m.agent_name.includes("Policy"));
-  const hasPolicyEvidence = policyMemory?.evidence && !policyMemory.evidence.includes("zero matches");
 
   return (
     <div>
@@ -237,7 +219,7 @@ export default function TransactionDetail() {
         </div>
       </div>
 
-      {/* === Grid Row 1: Transaction Summary + Risk Signals === */}
+      {/* === Grid Row 1: Transaction Summary + Structured Evidence === */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
 
         {/* Transaction Summary */}
@@ -270,36 +252,37 @@ export default function TransactionDetail() {
           </div>
         </div>
 
-        {/* Risk Signals */}
+        {/* Structured Evidence */}
         <div className="panel">
-          <h2>Flagged Risk Signals</h2>
+          <h2>Structured Evidence Blocks</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px", overflowY: "auto", maxHeight: "240px" }}>
-            {riskFlags.length === 0 ? (
-              <p style={{ color: "var(--fg-muted)", fontSize: "0.8rem", fontStyle: "italic" }}>
-                No immediate risk signals detected for this transaction.
-              </p>
-            ) : (
-              riskFlags.map((flag, idx) => {
-                const sColor = flag.severity === "HIGH" ? "var(--risk-high)" : "var(--risk-warn)";
+            {evidences && evidences.length > 0 ? (
+              evidences.map((ev, idx) => {
+                const sColor = ev.severity === "high" ? "var(--risk-high)" : (ev.severity === "medium" ? "var(--risk-warn)" : "var(--risk-safe)");
                 return (
                   <div key={idx} style={{ borderLeft: `2px solid ${sColor}`, paddingLeft: "10px", paddingBottom: "8px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", fontWeight: "700", color: sColor }}>
-                        {flag.signal}
+                        {ev.category.toUpperCase()}
                       </span>
                       <span style={{ fontSize: "0.62rem", backgroundColor: sColor === "var(--risk-high)" ? "var(--risk-high-bg)" : "var(--risk-warn-bg)", color: sColor, padding: "1px 6px", borderRadius: "2px", fontWeight: "700" }}>
-                        {flag.severity}
+                        {ev.severity.toUpperCase()}
                       </span>
                     </div>
                     <div style={{ fontSize: "0.72rem", color: "var(--fg-muted)", display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span><span style={{ color: "var(--fg-dim)" }}>Observed:</span> {flag.observed}</span>
-                      {flag.expected && <span><span style={{ color: "var(--fg-dim)" }}>Expected:</span> {flag.expected}</span>}
-                      <span><span style={{ color: "var(--fg-dim)" }}>Source:</span> {flag.source}</span>
-                      <span style={{ marginTop: "3px", borderTop: "1px solid var(--border-subtle)", paddingTop: "3px", color: "var(--fg)" }}>{flag.reason}</span>
+                      {ev.value && <span><span style={{ color: "var(--fg-dim)" }}>Observed:</span> {ev.value}</span>}
+                      {ev.supporting_entity && <span><span style={{ color: "var(--fg-dim)" }}>Target Node:</span> {ev.supporting_entity}</span>}
+                      <span><span style={{ color: "var(--fg-dim)" }}>Source:</span> {ev.source}</span>
+                      {ev.policy_reference && <span><span style={{ color: "var(--fg-dim)" }}>Policy:</span> {ev.policy_reference}</span>}
+                      <span style={{ marginTop: "3px", borderTop: "1px solid var(--border-subtle)", paddingTop: "3px", color: "var(--fg)" }}>{ev.description}</span>
                     </div>
                   </div>
                 );
               })
+            ) : (
+              <p style={{ color: "var(--fg-muted)", fontSize: "0.8rem", fontStyle: "italic" }}>
+                No active suspicious evidence signals detected.
+              </p>
             )}
           </div>
         </div>
@@ -384,7 +367,7 @@ export default function TransactionDetail() {
         <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
           <h2>Relationship Map</h2>
           <p style={{ fontSize: "0.7rem", color: "var(--fg-muted)", marginBottom: "10px" }}>
-            Device and network sharing across accounts. Click a node to see connections.
+            Device and payment card network overlaps across accounts. Click a node to walk connections.
           </p>
           <div style={{ flexGrow: 1 }}>
             <NetworkVisualizer userId={transaction.user_id} token={token} compact={true} />
@@ -392,27 +375,33 @@ export default function TransactionDetail() {
           <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid var(--border-subtle)" }}>
             <p style={{ fontSize: "0.68rem", color: "var(--fg-muted)", lineHeight: "1.4" }}>
               {transaction.user_id === "CUST-7821"
-                ? "⚑ Multiple suspect accounts (usr_suspect_1, _2, _3) linked to the same device fingerprint initiated from this identity."
-                : "Graph walk shows this identity is isolated — standard single device/IP mapping."}
+                ? "⚑ Multiple suspect accounts (usr_suspect_1, usr_suspect_2) linked via shared devices AND card networks initiated from this identifier."
+                : "Graph walk shows this identity is isolated — no device, IP, or card number overlap conflicts."}
             </p>
           </div>
         </div>
 
         {/* Policy Evidence */}
         <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
-          <h2>Policy Evidence</h2>
+          <h2>Compliance & Policy Proofs</h2>
           <p style={{ fontSize: "0.7rem", color: "var(--fg-muted)", marginBottom: "10px" }}>
             Compliance segments retrieved from the indexed regulatory manual database.
           </p>
           <div style={{ flexGrow: 1, overflowY: "auto", maxHeight: "220px" }}>
-            {hasPolicyEvidence ? (
-              <div style={{ padding: "10px", border: "1px solid var(--border)", borderRadius: "3px", backgroundColor: "var(--bg-inset)", fontSize: "0.78rem", lineHeight: "1.5" }}>
-                <p style={{ fontWeight: "600", color: "var(--accent-text)", marginBottom: "5px", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Compliance Check Output</p>
-                <p style={{ color: "var(--fg)", fontStyle: "italic" }}>{policyMemory.evidence}</p>
-                <p style={{ marginTop: "8px", fontSize: "0.65rem", color: "var(--fg-dim)" }}>
-                  Source: compliance manual databases (Hybrid RRF retrieval)
-                </p>
-              </div>
+            {evidences && evidences.filter(e => e.category === "policy_match").length > 0 ? (
+              evidences.filter(e => e.category === "policy_match").map((ev, idx) => (
+                <div key={idx} style={{ padding: "10px", border: "1px solid var(--border)", borderRadius: "3px", backgroundColor: "var(--bg-inset)", fontSize: "0.78rem", lineHeight: "1.5", marginBottom: "8px" }}>
+                  <p style={{ fontWeight: "600", color: "var(--accent-text)", marginBottom: "4px", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    Similarity Match: {(ev.confidence * 100).toFixed(0)}%
+                  </p>
+                  <p style={{ color: "var(--fg)", fontStyle: "italic" }}>{ev.description}</p>
+                  {ev.policy_reference && (
+                    <p style={{ marginTop: "6px", fontSize: "0.65rem", color: "var(--fg-dim)", fontFamily: "var(--font-mono)" }}>
+                      Source Document: {ev.policy_reference}
+                    </p>
+                  )}
+                </div>
+              ))
             ) : (
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", flexGrow: 1, color: "var(--fg-dim)", minHeight: "140px", gap: "6px" }}>
                 <span style={{ fontSize: "1.2rem" }}>—</span>
@@ -463,7 +452,7 @@ export default function TransactionDetail() {
             Analyst Override
           </h2>
           <p style={{ fontSize: "0.7rem", color: "var(--fg-muted)", marginBottom: "14px" }}>
-            Human-in-the-loop decision. Override notes are persisted in the audit trail.
+            Human-in-the-loop decision override logs.
           </p>
 
           {transaction.status === "Escalated" ? (
@@ -503,9 +492,9 @@ export default function TransactionDetail() {
             <div style={{ padding: "14px", border: "1px solid var(--border-subtle)", borderRadius: "3px", backgroundColor: "var(--bg-inset)", display: "flex", alignItems: "flex-start", gap: "10px" }}>
               <span style={{ color: "var(--risk-safe)", fontSize: "1rem", marginTop: "1px" }}>✓</span>
               <div>
-                <p style={{ fontSize: "0.82rem", fontWeight: "600" }}>Decision Committed</p>
+                <p style={{ fontSize: "0.82rem", fontWeight: "600" }}>Decision Resolved</p>
                 <p style={{ fontSize: "0.72rem", color: "var(--fg-muted)", marginTop: "3px" }}>
-                  This transaction has been resolved and requires no further analyst action. Current state:{" "}
+                  This transaction state override has been resolved. Current status:{" "}
                   <strong style={{ color: "var(--fg)" }}>{transaction.status}</strong>
                 </p>
               </div>
@@ -514,10 +503,90 @@ export default function TransactionDetail() {
         </div>
       </div>
 
-      {/* === Audit Trail / Decision Log === */}
+      {/* === Grid Row 5: AI Orchestration Timeline & Audit Trail === */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.9fr", gap: "12px", marginBottom: "12px" }}>
+        
+        {/* Orchestration Trace Timeline */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+          <h2>AI Orchestration Timeline</h2>
+          <p style={{ fontSize: "0.7rem", color: "var(--fg-muted)", marginBottom: "10px" }}>
+            Multi-agent execution sequence trace replay.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowY: "auto", maxHeight: "280px", paddingRight: "4px" }}>
+            {reasoning_steps && reasoning_steps.length > 0 ? (
+              reasoning_steps.map((step, idx) => (
+                <div key={idx} style={{ display: "flex", gap: "10px", position: "relative" }}>
+                  {idx < reasoning_steps.length - 1 && (
+                    <div style={{ position: "absolute", left: "6px", top: "14px", bottom: "-12px", width: "1px", backgroundColor: "var(--border-subtle)" }} />
+                  )}
+                  <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "var(--accent)", border: "2px solid var(--bg-surface)", marginTop: "2px", flexShrink: 0 }} />
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "6px" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: "700", color: "var(--fg)" }}>{step.event.replace(/_/g, " ").toUpperCase()}</span>
+                      <span style={{ fontSize: "0.6rem", color: "var(--fg-dim)", fontFamily: "var(--font-mono)" }}>{step.timestamp ? new Date(step.timestamp).toLocaleTimeString() : ""}</span>
+                    </div>
+                    <p style={{ fontSize: "0.72rem", color: "var(--fg-muted)", marginTop: "1px" }}>{step.description}</p>
+                    <p style={{ fontSize: "0.62rem", color: "var(--fg-dim)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>Agent: {step.agent}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: "0.72rem", color: "var(--fg-dim)" }}>No trace steps available</p>
+            )}
+          </div>
+        </div>
+
+        {/* Audit Log Trail */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+          <h2>Compliance Audit Trail</h2>
+          <p style={{ fontSize: "0.7rem", color: "var(--fg-muted)", marginBottom: "10px" }}>
+            Immutable records of database-level transactions, transitions and human actions.
+          </p>
+          <div className="data-table-container" style={{ flexGrow: 1, overflowY: "auto", maxHeight: "280px" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event</th>
+                  <th>Actor</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit_logs && audit_logs.length > 0 ? (
+                  audit_logs.map((log) => (
+                    <tr key={log.id}>
+                      <td>
+                        <span style={{ fontSize: "0.7rem", color: "var(--fg-muted)" }}>
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge badge-escalated" style={{ fontSize: "0.65rem", padding: "1px 4px" }}>
+                          {log.event.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem" }}>{log.actor}</td>
+                      <td style={{ fontSize: "0.7rem", color: "var(--fg)" }}>{log.description}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", color: "var(--fg-dim)", fontSize: "0.75rem", padding: "14px" }}>
+                      No audit log records found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* === Decision overrides trail === */}
       {decisions && decisions.length > 0 && (
         <div className="panel">
-          <h2>Decision Trail</h2>
+          <h2>Decision Overrides Log</h2>
           <div className="data-table-container" style={{ marginTop: "8px" }}>
             <table className="data-table">
               <thead>
@@ -526,7 +595,7 @@ export default function TransactionDetail() {
                   <th>Analyst</th>
                   <th>Action</th>
                   <th>AI Rec.</th>
-                  <th>Justification Notes</th>
+                  <th>Justification Notes & Evidence Snapshot</th>
                 </tr>
               </thead>
               <tbody>
@@ -554,6 +623,25 @@ export default function TransactionDetail() {
                     </td>
                     <td style={{ fontSize: "0.75rem", color: "var(--fg-muted)", fontStyle: "italic" }}>
                       "{dec.notes}"
+                      {dec.risk_score_at_decision_time !== undefined && dec.risk_score_at_decision_time !== null && (
+                        <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "var(--fg-muted)", fontStyle: "normal" }}>
+                          Captured AI Score: <strong style={{ color: "var(--fg)" }}>{dec.risk_score_at_decision_time.toFixed(0)}%</strong>
+                          {dec.evidence_snapshot && dec.evidence_snapshot.length > 0 && (
+                            <details style={{ marginTop: "3px", cursor: "pointer" }}>
+                              <summary style={{ color: "var(--accent-text)", fontSize: "0.65rem", fontWeight: "600" }}>
+                                View Evidence Snapshot ({dec.evidence_snapshot.length} signals)
+                              </summary>
+                              <div style={{ padding: "6px 8px", background: "var(--bg-inset)", border: "1px solid var(--border-subtle)", borderRadius: "3px", fontSize: "0.68rem", marginTop: "3px", whiteSpace: "pre-wrap", color: "var(--fg-dim)" }}>
+                                {dec.evidence_snapshot.map((ev, idx) => (
+                                  <div key={idx} style={{ marginBottom: "4px", borderBottom: idx < dec.evidence_snapshot.length - 1 ? "1px dashed var(--border-subtle)" : "none", paddingBottom: "4px" }}>
+                                    <span style={{ fontWeight: "700", color: "var(--fg)" }}>{ev.category.toUpperCase()}:</span> {ev.description}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

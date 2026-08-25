@@ -169,7 +169,7 @@ Compliance document policies are chunked using sliding windows and stored in Pos
 
 ## 8. Knowledge Graph
 Built on top of SQLAlchemy model edges and NetworkX, the relationship graph maps nodes for `User`, `Transaction`, `Device`, `IP`, and `Merchant`.
-- **Topological Walks:** Explores up to 3 hops from the initiating user to find distinct accounts linked to the same device fingerprint or IP.
+- **Topological Walks:** Explores relational overlaps (User -> Transaction -> Device/IP/Card -> Transaction -> User) to find distinct accounts linked to the same device fingerprint, IP, or card.
 - **Visual Evidence:** Visualized in the analyst UI using a dynamic `react-force-graph-2d` interface. Features include:
   - **WebGL/Canvas rendering**: High-performance force-directed layout rendering.
   - **Shape & color dual-encoding**: Visual distinction per node type (User/Transaction/Device/IP/Merchant) for colorblind accessibility.
@@ -271,6 +271,13 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
+#### Train the ML Model (Optional)
+RazorGuard AI uses a zero-dependency Nearest Centroid classifier for ML risk scoring. Because the trained model parameters file (`transaction_classifier.json`) is `.gitignored`, the system automatically falls back to predefined safe centroids at startup if the model file does not exist. 
+To train the classifier on synthetic training data and export the model file, run the training pipeline from the repository root:
+```bash
+python ml/train.py
+```
+
 ### Step 3: Frontend Setup
 ```bash
 cd ../frontend
@@ -293,7 +300,11 @@ Access the client interface at `http://localhost:3000` and API docs at `http://l
 
 ## 17. Testing
 
-Run backend tests:
+Run backend tests from the repository root:
+```bash
+pytest
+```
+Or from the `backend` folder:
 ```bash
 cd backend
 pytest

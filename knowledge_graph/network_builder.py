@@ -37,6 +37,7 @@ class PaymentNetworkGraph:
             (tx_node, device_node, "FROM_DEVICE"),
             (tx_node, ip_node, "FROM_IP"),
             (tx_node, merchant_node, "TO_MERCHANT"),
+            (tx_node, card_node, "USED_CARD"),
         ]
 
         sql_edges_payload = []
@@ -60,7 +61,7 @@ class PaymentNetworkGraph:
 
     def walk_shared_relationships(self, start_node_id: str, start_node_type: str = "User") -> Tuple[int, List[str], List[Dict[str, Any]]]:
         """
-        Walks the graph up to 3 hops to find:
+        Walks the graph to find relational overlaps:
         1. Device sharing: Distinct accounts sharing hardware.
         2. IP sharing: Distinct accounts sharing IP addresses.
         Returns: Tuple of (degrees_of_sharing: int, shared_entities: list[str], paths: list[dict])
@@ -87,7 +88,7 @@ class PaymentNetworkGraph:
                 elif data.get("relation") == "FROM_IP":
                     ips.add(tgt)
 
-        # Tracing device overlap (hops 2 and 3)
+        # Tracing device overlap (via transaction relationships)
         for dev in devices:
             # Device <- Transaction (incoming edge)
             in_edges = self.G.in_edges(dev, data=True)

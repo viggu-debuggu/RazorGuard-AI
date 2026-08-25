@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.models.user import User, RefreshToken
-from app.schemas.auth import UserRegister, Token, UserOut, UserLogin
+from app.schemas.auth import UserRegister, Token, UserOut, UserLogin, TokenRefreshRequest
 from app.api.dependencies.auth import (
     get_password_hash,
     verify_password,
@@ -54,8 +54,12 @@ def login_analyst(payload: UserLogin, db: Session = Depends(get_db)):
         )
 
     # Generate token
+    import uuid
     access_token = create_access_token(data={"sub": user.email})
-    refresh_token = create_access_token(data={"sub": user.email}, expires_delta=timedelta(days=7))
+    refresh_token = create_access_token(
+        data={"sub": user.email, "jti": str(uuid.uuid4())}, 
+        expires_delta=timedelta(days=7)
+    )
     
     # Store refresh token hash in DB
     hashed_refresh = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
@@ -82,5 +86,58 @@ def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         )
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/refresh")
+def refresh_token(payload: TokenRefreshRequest, db: Session = Depends(get_db)):
+    """Redeems a refresh token to generate a new access token and rotate the refresh token."""
+    hashed_refresh = hashlib.sha256(payload.refresh_token.encode("utf-8")).hexdigest()
+    
+    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == hashed_refresh).first()
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token."
+        )
+        
+    if db_token.expires_at < datetime.utcnow():
+        db.delete(db_token)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Expired refresh token."
+        )
+        
+    user = db_token.user
+    access_token = create_access_token(data={"sub": user.email})
+    
+    # Rotate the refresh token
+    import uuid
+    new_refresh_token = create_access_token(
+        data={"sub": user.email, "jti": str(uuid.uuid4())}, 
+        expires_delta=timedelta(days=7)
+    )
+    new_hashed_refresh = hashlib.sha256(new_refresh_token.encode("utf-8")).hexdigest()
+    
+    db_token.token_hash = new_hashed_refresh
+    db_token.expires_at = datetime.utcnow() + timedelta(days=7)
+    db.add(db_token)
+    db.commit()
+    
+    # Construct UserOut representation manually to return it
+    user_out = {
+        "id": user.id,
+        "uuid": user.uuid,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role
+    }
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "user": user_out
+    }
 
 

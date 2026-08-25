@@ -140,3 +140,38 @@ def test_analyst_efficiency_metrics(client):
     assert metrics_data["total_overrides_submitted"] >= 1
     assert metrics_data["pct_decisions_with_justification"] == 100.0
 
+
+def test_refresh_token_rotation(client):
+    """Tests refresh token redemption, rotation, and validation workflows."""
+    # 1. Register & Login to get initial refresh token
+    client.post("/api/v1/auth/register", json={
+        "email": "refresh_test@test.com",
+        "password": "securepassword",
+        "full_name": "Refresh Tester"
+    })
+    log_res = client.post("/api/v1/auth/login", json={
+        "email": "refresh_test@test.com",
+        "password": "securepassword"
+    })
+    assert log_res.status_code == 200
+    res_data = log_res.json()
+    refresh_token = res_data["refresh_token"]
+
+    # 2. Redeem refresh token
+    ref_res = client.post("/api/v1/auth/refresh", json={
+        "refresh_token": refresh_token
+    })
+    assert ref_res.status_code == 200
+    ref_data = ref_res.json()
+    assert "access_token" in ref_data
+    assert "refresh_token" in ref_data
+    new_refresh = ref_data["refresh_token"]
+    assert new_refresh != refresh_token
+
+    # 3. Test old refresh token is now invalid (rotated out)
+    fail_res = client.post("/api/v1/auth/refresh", json={
+        "refresh_token": refresh_token
+    })
+    assert fail_res.status_code == 401
+
+

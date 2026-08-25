@@ -423,6 +423,9 @@ def seed_database():
         print("Seeding analyst overrides for Scenario B & Scenario C...")
         analyst_user = db.query(User).filter(User.email == "analyst@razorguard.ai").first()
         if analyst_user:
+            from app.models.evidence import Evidence
+            from app.models.audit_log import AuditLog
+
             # Scenario B: TXN-40293
             tx_b = db.query(Transaction).filter(Transaction.transaction_id == "TXN-40293").first()
             if tx_b:
@@ -431,17 +434,46 @@ def seed_database():
                     dec_b = db.query(AnalystDecision).filter(AnalystDecision.transaction_id == tx_b.id).first()
                     if not dec_b:
                         submitted_time_b = assessment_b.analyzed_at + timedelta(minutes=3, seconds=45)
+                        original_rec_b = tx_b.status
+                        
+                        # Capture evidence snapshot
+                        evs_b = db.query(Evidence).filter(Evidence.transaction_id == tx_b.id).all()
+                        snapshot_b = []
+                        for e in evs_b:
+                            snapshot_b.append({
+                                "evidence_id": e.evidence_id,
+                                "category": e.category,
+                                "severity": e.severity,
+                                "value": e.value,
+                                "description": e.description,
+                                "source": e.source,
+                                "confidence": e.confidence,
+                                "timestamp": e.timestamp.isoformat()
+                            })
+
                         dec_b = AnalystDecision(
                             transaction_id=tx_b.id,
                             analyst_id=analyst_user.id,
                             action="Approve",
                             notes="Verified billing country IN matches card issuing country US due to customer remote work status verified via OTP.",
-                            original_ai_recommendation=tx_b.status,
-                            submitted_at=submitted_time_b
+                            original_ai_recommendation=original_rec_b,
+                            submitted_at=submitted_time_b,
+                            risk_score_at_decision_time=tx_b.risk_score,
+                            evidence_snapshot=snapshot_b
                         )
                         db.add(dec_b)
                         tx_b.status = "Approved"
                         db.add(tx_b)
+                        
+                        # Add AuditLog
+                        log_b = AuditLog(
+                            transaction_id=tx_b.id,
+                            event="decision_overridden",
+                            description=f"Analyst override committed. Final status transitioned from '{original_rec_b}' to 'Approved' with notes: \"{dec_b.notes}\".",
+                            actor=f"Analyst: {analyst_user.email}",
+                            timestamp=submitted_time_b
+                        )
+                        db.add(log_b)
                         print("Seeded AnalystDecision override for TXN-40293.")
             
             # Scenario C: TXN-92817
@@ -452,17 +484,46 @@ def seed_database():
                     dec_c = db.query(AnalystDecision).filter(AnalystDecision.transaction_id == tx_c.id).first()
                     if not dec_c:
                         submitted_time_c = assessment_c.analyzed_at + timedelta(minutes=5, seconds=12)
+                        original_rec_c = tx_c.status
+
+                        # Capture evidence snapshot
+                        evs_c = db.query(Evidence).filter(Evidence.transaction_id == tx_c.id).all()
+                        snapshot_c = []
+                        for e in evs_c:
+                            snapshot_c.append({
+                                "evidence_id": e.evidence_id,
+                                "category": e.category,
+                                "severity": e.severity,
+                                "value": e.value,
+                                "description": e.description,
+                                "source": e.source,
+                                "confidence": e.confidence,
+                                "timestamp": e.timestamp.isoformat()
+                            })
+
                         dec_c = AnalystDecision(
                             transaction_id=tx_c.id,
                             analyst_id=analyst_user.id,
                             action="Block",
                             notes="Confirmed hardware device fingerprint df_demo_unseen_99 overlaps with 3 blocked suspect accounts.",
-                            original_ai_recommendation=tx_c.status,
-                            submitted_at=submitted_time_c
+                            original_ai_recommendation=original_rec_c,
+                            submitted_at=submitted_time_c,
+                            risk_score_at_decision_time=tx_c.risk_score,
+                            evidence_snapshot=snapshot_c
                         )
                         db.add(dec_c)
                         tx_c.status = "Blocked"
                         db.add(tx_c)
+
+                        # Add AuditLog
+                        log_c = AuditLog(
+                            transaction_id=tx_c.id,
+                            event="decision_overridden",
+                            description=f"Analyst override committed. Final status transitioned from '{original_rec_c}' to 'Blocked' with notes: \"{dec_c.notes}\".",
+                            actor=f"Analyst: {analyst_user.email}",
+                            timestamp=submitted_time_c
+                        )
+                        db.add(log_c)
                         print("Seeded AnalystDecision override for TXN-92817.")
             
             # Ensure AgentExecution duration is non-zero

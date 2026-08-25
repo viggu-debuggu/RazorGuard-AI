@@ -96,6 +96,32 @@ def _generate_mock_explanation(prompt: str) -> str:
     if policy_evidence_match:
         policy_evidence = policy_evidence_match.group(1).strip()
 
+    # Parse Structured Evidence lines
+    evidence_lines = []
+    structured_match = re.search(r"Structured Evidence:\n(.*)", prompt, re.DOTALL)
+    if structured_match:
+        raw_evidence = structured_match.group(1).strip()
+        for line in raw_evidence.split("\n"):
+            if line.strip().startswith("- ["):
+                # Clean up the leading bullet and parse the description
+                desc_match = re.search(r"Description:\s*(.*?)(?=\s*\(|$)", line)
+                if desc_match:
+                    desc_val = desc_match.group(1).strip()
+                    # Skip generic ML model signal representation in details to focus on rules/graph/RAG
+                    if "baseline risk score of" in desc_val:
+                        continue
+                    evidence_lines.append(desc_val)
+
+    if evidence_lines:
+        factors_text = "\n".join(f"- {line}" for line in evidence_lines)
+    else:
+        # Fallback
+        factors_text = (
+            f"- **Transaction Rules:** {tx_rules}\n"
+            f"- **Behavioral History:** {behavior_history}\n"
+            f"- **Network Relationships:** {network_graph}"
+        )
+
     # Determine recommended action based on classification
     if classification == "High Risk":
         action = "ESCALATE (Suspends transaction state pending manual review)"
@@ -110,9 +136,7 @@ def _generate_mock_explanation(prompt: str) -> str:
         f"Transaction {tx_id} for user {user_id} valued at {amount} evaluates as **{classification}** "
         f"with a deterministic risk score of {score}%.\n\n"
         f"### Key Factors\n"
-        f"- **Transaction Rules:** {tx_rules}\n"
-        f"- **Behavioral History:** {behavior_history}\n"
-        f"- **Network Relationships:** {network_graph}\n\n"
+        f"{factors_text}\n\n"
         f"### Policy Evidence\n"
         f"{policy_evidence}\n\n"
         f"### Recommended Action\n"

@@ -36,3 +36,5 @@ class Transaction(Base):
     assessment = relationship("RiskAssessment", uselist=False, back_populates="transaction", cascade="all, delete-orphan")
     executions = relationship("AgentExecution", back_populates="transaction", cascade="all, delete-orphan")
     decisions = relationship("AnalystDecision", back_populates="transaction", cascade="all, delete-orphan")
+    evidences = relationship("Evidence", back_populates="transaction", cascade="all, delete-orphan")
+    audit_logs = relationship("AuditLog", back_populates="transaction", cascade="all, delete-orphan")

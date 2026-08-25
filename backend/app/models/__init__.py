@@ -6,6 +6,8 @@ from app.models.agent import AgentExecution, AgentMemory
 from app.models.graph import GraphEdge
 from app.models.policy import PolicyDocument, PolicyChunk
 from app.models.decision import AnalystDecision
+from app.models.evidence import Evidence
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "Base",
@@ -19,4 +21,6 @@ __all__ = [
     "PolicyDocument",
     "PolicyChunk",
     "AnalystDecision",
+    "Evidence",
+    "AuditLog",
 ]

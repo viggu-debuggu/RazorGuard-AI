@@ -7,6 +7,8 @@ from app.models.transaction import Transaction
 from app.models.risk_assessment import RiskAssessment
 from app.models.agent import AgentExecution, AgentMemory
 from app.models.graph import GraphEdge
+from app.models.evidence import Evidence
+from app.models.audit_log import AuditLog
 from app.services.agent_team import (
     TransactionRiskAgent,
     BehavioralRiskAgent,
@@ -23,10 +25,10 @@ class AgentOrchestrator:
     """Orchestrates collaborative risk analysis, collects evidence, computes scores, and synthesizes explanation."""
 
     @classmethod
-    def run_investigation(cls, db: Session, transaction_id: str) -> Tuple[RiskAssessment, List[str]]:
+    def run_investigation(cls, db: Session, transaction_id: str) -> Tuple[RiskAssessment, List[Dict[str, Any]]]:
         """
         Coordinates the multi-agent pipeline for a specific transaction.
-        Returns: Tuple of (RiskAssessment model instance, list of reasoning steps)
+        Returns: Tuple of (RiskAssessment model instance, list of reasoning steps dicts)
         """
         start_time = time.time()
         reasoning_steps = []
@@ -36,10 +38,29 @@ class AgentOrchestrator:
         if not tx:
             raise ValueError(f"Transaction '{transaction_id}' not found.")
             
-        reasoning_steps.append(f"Orchestrator initiated investigation for transaction {transaction_id}.")
+        def log_event(event: str, description: str, agent: str = "Orchestrator"):
+            now = datetime.utcnow()
+            reasoning_steps.append({
+                "timestamp": now.isoformat() + "Z",
+                "event": event,
+                "description": description,
+                "agent": agent
+            })
+            log = AuditLog(
+                transaction_id=tx.id,
+                event=event,
+                description=description,
+                actor=agent,
+                timestamp=now
+            )
+            db.add(log)
+            db.flush()
+
+        log_event("transaction_received", f"Orchestrator initiated investigation for transaction {transaction_id}.", "Orchestrator")
         logger.info("orchestrator_investigation_started", transaction_id=transaction_id)
         
         # 2. Run Nearest Centroid ML Classifier
+        log_event("analysis_started", "Extracting transaction features for ML model evaluation.", "Orchestrator")
         # Calculate dynamic parameters based on current database state
         location_drift = 4500.0 if tx.billing_country != tx.card_country else 5.0
         
@@ -72,12 +93,12 @@ class AgentOrchestrator:
             velocity_1h=velocity_1h,
             device_score=device_score
         )
-        reasoning_steps.append(f"ML Classifier generated baseline status '{ml_class}' with score {ml_score:.1f}%.")
+        log_event("analysis_started", f"ML Classifier generated baseline status '{ml_class}' with score {ml_score:.1f}%.", "ML Classifier")
         
         # 3. Execute Transaction Risk Agent (Rules)
         tx_res = TransactionRiskAgent.process_task(db, tx)
         rule_score = tx_res["score"]
-        reasoning_steps.append(f"Transaction Risk Agent finished. Rules score: {rule_score:.1f}%.")
+        log_event("agent_completed", f"Transaction Risk Agent finished. Rules score: {rule_score:.1f}%.", "Transaction Risk Agent")
         
         # Save Agent Memory
         m1 = AgentMemory(
@@ -92,7 +113,7 @@ class AgentOrchestrator:
         # 4. Execute Behavioral Risk Agent (Velocity)
         beh_res = BehavioralRiskAgent.process_task(db, tx)
         behavioral_score = beh_res["score"]
-        reasoning_steps.append(f"Behavioral Risk Agent finished. Velocity score: {behavioral_score:.1f}%.")
+        log_event("agent_completed", f"Behavioral Risk Agent finished. Velocity score: {behavioral_score:.1f}%.", "Behavioral Risk Agent")
         
         m2 = AgentMemory(
             agent_name=beh_res["agent_name"],
@@ -106,7 +127,7 @@ class AgentOrchestrator:
         # 5. Execute Fraud Investigation Agent (Knowledge Graph)
         graph_res = FraudInvestigationAgent.process_task(db, tx)
         graph_score = graph_res["score"]
-        reasoning_steps.append(f"Fraud Investigation Agent finished. Graph score: {graph_score:.1f}%.")
+        log_event("graph_completed", f"Fraud Investigation Agent finished. Graph score: {graph_score:.1f}%.", "Fraud Investigation Agent")
         
         m3 = AgentMemory(
             agent_name=graph_res["agent_name"],
@@ -140,7 +161,7 @@ class AgentOrchestrator:
         # 6. Execute Policy/RAG Agent (Compliance)
         policy_res = PolicyRAGAgent.process_task(db, tx)
         policy_score = policy_res["score"]
-        reasoning_steps.append(f"Policy/RAG Agent finished. Policy score: {policy_score:.1f}%.")
+        log_event("policy_retrieved", f"Policy/RAG Agent finished. Policy score: {policy_score:.1f}%.", "Policy Agent")
         
         m4 = AgentMemory(
             agent_name=policy_res["agent_name"],
@@ -163,7 +184,7 @@ class AgentOrchestrator:
         )
         overall_score = dec_res["score"]
         classification = dec_res["classification"]
-        reasoning_steps.append(f"Decision Agent compiled composite score: {overall_score:.1f}%. Classification: {classification}.")
+        log_event("risk_calculated", f"Decision Agent compiled composite score: {overall_score:.1f}%. Classification: {classification}.", "Decision Agent")
         
         m5 = AgentMemory(
             agent_name=dec_res["agent_name"],
@@ -176,7 +197,7 @@ class AgentOrchestrator:
         
         # 8. Execute Action Agent (Routing status)
         act_res = ActionAgent.process_task(db, tx, classification, overall_score)
-        reasoning_steps.append(f"Action Agent resolved status routing: {act_res['action']} -> {act_res['status']}.")
+        log_event("recommendation_generated", f"Action Agent resolved status routing: {act_res['action']} -> {act_res['status']}.", "Action Agent")
         
         m6 = AgentMemory(
             agent_name=act_res["agent_name"],
@@ -186,8 +207,55 @@ class AgentOrchestrator:
             confidence=99.0
         )
         db.add(m6)
+
+        # 9. Save all structured evidences to the database
+        all_structured_evidences = []
+        if "evidences" in tx_res:
+            all_structured_evidences.extend(tx_res["evidences"])
+        if "evidences" in beh_res:
+            all_structured_evidences.extend(beh_res["evidences"])
+        if "evidences" in graph_res:
+            all_structured_evidences.extend(graph_res["evidences"])
+        if "evidences" in policy_res:
+            all_structured_evidences.extend(policy_res["evidences"])
+
+        # Add ML signal to structured evidences
+        all_structured_evidences.append({
+            "category": "model_signal",
+            "severity": "high" if ml_score >= 75 else ("medium" if ml_score >= 40 else "low"),
+            "value": f"ML Score: {ml_score:.1f}%",
+            "description": f"Nearest Centroid ML classifier generated baseline risk score of {ml_score:.1f}%.",
+            "source": "ML Classifier",
+            "confidence": 0.9,
+            "supporting_entity": "Centroid Model"
+        })
+
+        for idx, ev_data in enumerate(all_structured_evidences):
+            ev_id = f"EV-{tx.transaction_id}-{idx+1}"
+            evidence_record = Evidence(
+                transaction_id=tx.id,
+                evidence_id=ev_id,
+                category=ev_data["category"],
+                severity=ev_data["severity"],
+                value=ev_data.get("value"),
+                description=ev_data["description"],
+                source=ev_data["source"],
+                confidence=ev_data.get("confidence", 1.0),
+                supporting_entity=ev_data.get("supporting_entity"),
+                supporting_transaction=ev_data.get("supporting_transaction"),
+                policy_reference=ev_data.get("policy_reference"),
+                timestamp=datetime.utcnow()
+            )
+            db.add(evidence_record)
         
-        # 9. LLM Synthesis & Explanation Generation
+        # 10. LLM Synthesis & Explanation Generation grounded in structured evidence
+        evidence_lines = []
+        for ev in all_structured_evidences:
+            ref_str = f" ({ev['policy_reference']})" if ev.get('policy_reference') else ""
+            evidence_lines.append(f"- [{ev['category'].upper()}] Source: {ev['source']} | Severity: {ev['severity'].upper()} | Value: {ev['value']} | Description: {ev['description']}{ref_str}")
+        
+        evidence_text = "\n".join(evidence_lines) if evidence_lines else "No suspicious evidence detected."
+
         llm_prompt = (
             f"Please synthesize a detailed payment risk briefing explanation.\n"
             f"Transaction ID: {tx.transaction_id}\n"
@@ -201,20 +269,23 @@ class AgentOrchestrator:
             f"- Transaction Rules: {tx_res['evidence']}\n"
             f"- Behavior History: {beh_res['evidence']}\n"
             f"- Network Graph walks: {graph_res['evidence']}\n"
-            f"- Compliance Policy: {policy_res['evidence']}\n"
+            f"- Compliance Policy: {policy_res['evidence']}\n\n"
+            f"Structured Evidence:\n{evidence_text}\n"
         )
         
         system_prompt = (
             "You are the consensus explanation engine for RazorGuard AI risk platform.\n"
             "Produce a structured markdown summary explaining the risk factors in a clear "
             "and professional tone suitable for compliance officers. "
+            "Every statement in your briefing MUST be grounded in the provided Structured Evidence.\n"
+            "If evidence is unavailable for any of the categories, state 'Evidence unavailable.' for that section.\n"
             "Highlight specific rule breaches, citation footnotes for any compliance documents, "
             "and explain graph relationship overlaps clearly."
         )
         
         explanation_markdown = LLMService.generate_response(llm_prompt, system_prompt)
         
-        # 10. Persist Risk Assessment
+        # 11. Persist Risk Assessment
         assessment = RiskAssessment(
             transaction_id=tx.id,
             overall_score=overall_score,
@@ -228,7 +299,7 @@ class AgentOrchestrator:
         )
         db.add(assessment)
         
-        # 11. Log Execution Trace
+        # 12. Log Execution Trace
         duration = time.time() - start_time
         exec_trace = AgentExecution(
             transaction_id=tx.id,

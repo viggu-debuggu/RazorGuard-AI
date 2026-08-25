@@ -22,8 +22,9 @@ RazorGuard AI implements a specialized, multi-agent pipeline where each agent is
 
 | Agent Name | Inputs Evaluated | Responsibility | Outputs Produced | Affects Scoring? | Failure Fallback Behavior |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Transaction Risk Agent** | Amount, card-present, billing country, card country | Static heuristic rules validation | Score (0-100) & rule violations list | Yes (20% composite weight) | Defaults to 0.0 risk, logs warning |
-| **Behavioral Risk Agent** | Historical transaction log, current hourly counts | Velocity check and ticket size baseline drifts | Score (0-100) & baseline deviation logs | Yes (20% composite weight) | Defaults to 0.0 risk, logs warning |
+| **ML Classifier** | Amount, location drift, velocity, device score | Predicts baseline risk probability | Score (0-100) & risk class | Yes (35% composite weight) | Defaults to 0.0 risk, logs warning |
+| **Transaction Risk Agent** | Amount, card-present, billing country, card country | Static heuristic rules validation | Score (0-100) & rule violations list | Yes (Heuristic component: 10% effective weight; averaged with behavioral under the 20% Rules weight) | Defaults to 0.0 risk, logs warning |
+| **Behavioral Risk Agent** | Historical transaction log, current hourly counts | Velocity check and ticket size baseline drifts | Score (0-100) & baseline deviation logs | Yes (Behavior component: 10% effective weight; averaged with rules under the 20% Rules weight) | Defaults to 0.0 risk, logs warning |
 | **Fraud Investigation Agent** | Graph walk database edges, relationship nodes | Identifies hardware/device sharing overlaps | Score (0-100) & shared entity paths | Yes (30% composite weight) | Defaults to 0.0 risk, logs warning |
 | **Policy Agent** | Ingestion context, compliance manuals vector store | Hybrid RAG retrieval of policy clauses | Score (0-100) & manual segment text | Yes (15% composite weight) | Defaults to 0.0 risk, logs warning |
 | **Decision Agent** | Aggregate scores from individual risk agents | Computes composite score using weighted formula | Final score (0-100) & classification label | Yes (Evaluates composite formula) | Capped at 100.0, escalates transaction |
@@ -36,7 +37,7 @@ RazorGuard AI implements a specialized, multi-agent pipeline where each agent is
 
 - **The Problem**: Compromised devices and card testing rings rotate user identities but reuse device fingerprints or local networks (IPs).
 - **The Solution**: Maps relationships as graph edges (`User -[USED_DEVICE]-> Device`).
-- **Algorithm**: Explores up to 3 hops from the initiating user identity to count distinct accounts linked to the same device or IP. Each shared entity adds 33.3% risk (capped at 100%).
+- **Algorithm**: Explores relational overlaps (User -> Transaction -> Device/IP/Card -> Transaction -> User) to count distinct accounts linked to the same device, IP, or card. Each shared entity adds 33.3% risk (capped at 100%).
 - **Implementation**: Written using Python's `NetworkX` library in-memory, avoiding the overhead of running a dedicated graph database service.
 
 ---
@@ -73,4 +74,4 @@ RazorGuard AI implements a specialized, multi-agent pipeline where each agent is
 
 - **Zero Hardcoded Secrets**: Removed insecure fallback secret key strings.
 - **Startup Protection**: The backend validator checks `ENVIRONMENT`. If `production` is set, startup aborts unless `SECRET_KEY` is defined in env. In `development` mode, it dynamically generates a temporary random key (`secrets.token_hex(32)`) at startup.
-- **Finnish Data Safety**: All names, cards, billing countries, and merchant transactions are completely synthetic and marked as such inside layouts.
+- **Financial Data Safety**: All names, cards, billing countries, and merchant transactions are completely synthetic and marked as such inside layouts.

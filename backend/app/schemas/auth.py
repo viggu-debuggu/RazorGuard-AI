@@ -24,3 +24,6 @@ class Token(BaseModel):
     refresh_token: str
     token_type: str
     user: UserOut
+
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str

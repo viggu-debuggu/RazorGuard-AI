@@ -1,7 +1,6 @@
 from datetime import datetime
-# pyrefly: ignore [missing-import]
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime
-# pyrefly: ignore [missing-import]
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Float, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from ..database.session import Base
 
@@ -18,6 +17,9 @@ class AnalystDecision(Base):
     action = Column(String(50), nullable=False)
     notes = Column(Text, nullable=True) # Text reasoning submitted by the analyst
     original_ai_recommendation = Column(String(50), nullable=True)
+    
+    risk_score_at_decision_time = Column(Float, nullable=True)
+    evidence_snapshot = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     
     submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

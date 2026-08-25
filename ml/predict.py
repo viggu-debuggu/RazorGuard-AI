@@ -40,10 +40,12 @@ class ModelLoader:
                     self.bounds = data["bounds"]
                     self.loaded = True
             else:
+                print("WARNING: ML model parameters not found at ml/models/transaction_classifier.json. Falling back to default baseline centroids.")
                 self.centroids = DEFAULT_CENTROIDS
                 self.bounds = DEFAULT_BOUNDS
                 self.loaded = False
-        except Exception:
+        except Exception as e:
+            print(f"WARNING: Failed to load ML model parameters ({e}). Falling back to default baseline centroids.")
             self.centroids = DEFAULT_CENTROIDS
             self.bounds = DEFAULT_BOUNDS
             self.loaded = False
