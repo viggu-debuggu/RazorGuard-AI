@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -57,7 +58,8 @@ def login_analyst(payload: UserLogin, db: Session = Depends(get_db)):
     refresh_token = create_access_token(data={"sub": user.email}, expires_delta=timedelta(days=7))
     
     # Store refresh token hash in DB
-    ref = RefreshToken(user_id=user.id, token_hash=refresh_token, expires_at=datetime.utcnow() + timedelta(days=7))
+    hashed_refresh = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
+    ref = RefreshToken(user_id=user.id, token_hash=hashed_refresh, expires_at=datetime.utcnow() + timedelta(days=7))
     db.add(ref)
     db.commit()
 
