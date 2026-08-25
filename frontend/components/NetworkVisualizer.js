@@ -1,130 +1,287 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 
-export default function NetworkVisualizer({ userId, token }) {
-  const [data, setData] = useState({ nodes: [], edges: [] });
+const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
+
+const NODE_CONFIG = {
+  User:        { color: "#6B7FD4", shape: "circle"  },
+  Transaction: { color: "#C9974A", shape: "diamond" },
+  Device:      { color: "#3D7A5C", shape: "square"  },
+  IP:          { color: "#B08040", shape: "triangle" },
+  Merchant:    { color: "#8E44AD", shape: "hexagon" },
+};
+
+const DEFAULT_COLOR = "#7A7A88";
+
+const EDGE_LABEL_MAP = {
+  "SHARED_WITH":  "shares device with",
+  "SAME_IP":      "same IP as",
+  "USED_DEVICE":  "uses device",
+  "PROCESSED_BY": "processed by",
+  "LINKED_TO":    "linked to",
+};
+
+function getEdgeLabel(relation) {
+  if (!relation) return "connected to";
+  return EDGE_LABEL_MAP[relation.toUpperCase()] || relation.toLowerCase().replace(/_/g, " ");
+}
+
+function drawNode(node, ctx, globalScale) {
+  const cfg = NODE_CONFIG[node.type] || { color: DEFAULT_COLOR, shape: "circle" };
+  const r = node.isDimmed ? 4 : (node.isSelected ? 8 : 5.5);
+  const alpha = node.isDimmed ? 0.15 : 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = cfg.color;
+  ctx.strokeStyle = node.isSelected ? "#FFFFFF" : cfg.color;
+  ctx.lineWidth = node.isSelected ? 1.5 : 0.5;
+  ctx.beginPath();
+
+  if (cfg.shape === "circle") {
+    ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+  } else if (cfg.shape === "square") {
+    ctx.rect(node.x - r, node.y - r, r * 2, r * 2);
+  } else if (cfg.shape === "diamond") {
+    ctx.moveTo(node.x, node.y - r * 1.2);
+    ctx.lineTo(node.x + r, node.y);
+    ctx.lineTo(node.x, node.y + r * 1.2);
+    ctx.lineTo(node.x - r, node.y);
+    ctx.closePath();
+  } else if (cfg.shape === "triangle") {
+    ctx.moveTo(node.x, node.y - r * 1.2);
+    ctx.lineTo(node.x + r * 1.1, node.y + r * 0.8);
+    ctx.lineTo(node.x - r * 1.1, node.y + r * 0.8);
+    ctx.closePath();
+  } else if (cfg.shape === "hexagon") {
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 6;
+      const px = node.x + r * Math.cos(angle);
+      const py = node.y + r * Math.sin(angle);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  ctx.fill();
+  if (node.isSelected) ctx.stroke();
+
+  if (globalScale > 0.7 && !node.isDimmed) {
+    ctx.font = `${Math.max(3, 9 / globalScale)}px system-ui, sans-serif`;
+    ctx.fillStyle = "#E8E8EC";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const lbl = (node.label || node.id || "");
+    ctx.fillText(lbl.length > 12 ? lbl.substring(0, 11) + "…" : lbl, node.x, node.y + r + 2);
+  }
+
+  ctx.restore();
+}
+
+function buildSummary(selectedNode, links) {
+  if (!selectedNode) return null;
+  const neighborLinks = links.filter((l) => {
+    const s = typeof l.source === "object" ? l.source.id : l.source;
+    const t = typeof l.target === "object" ? l.target.id : l.target;
+    return s === selectedNode.id || t === selectedNode.id;
+  });
+  const neighbors = neighborLinks.map((l) => {
+    const s = typeof l.source === "object" ? l.source : null;
+    const t = typeof l.target === "object" ? l.target : null;
+    const sId = s?.id;
+    const tId = t?.id;
+    return sId === selectedNode.id ? t : s;
+  }).filter(Boolean);
+
+  const byType = (type) => neighbors.filter((n) => n.type === type);
+  const parts = [];
+  const name = `"${selectedNode.label || selectedNode.id}"`;
+
+  if (selectedNode.type === "User") {
+    parts.push(`Account ${name}`);
+    const d = byType("Device");
+    const ip = byType("IP");
+    const u = byType("User");
+    if (d.length) parts.push(`shares ${d.length} device fingerprint${d.length > 1 ? "s" : ""}`);
+    if (ip.length) parts.push(`originates from ${ip.length} IP address${ip.length > 1 ? "es" : ""}`);
+    if (u.length) parts.push(`overlaps with ${u.length} other account${u.length > 1 ? "s" : ""} via shared hardware`);
+  } else if (selectedNode.type === "Device") {
+    const u = byType("User");
+    parts.push(`Device ${name}`);
+    if (u.length > 1) parts.push(`is shared by ${u.length} distinct accounts — elevated card-ring risk`);
+    else parts.push(`is used by ${u.length} account`);
+  } else if (selectedNode.type === "IP") {
+    const u = byType("User");
+    parts.push(`IP address ${name}`);
+    if (u.length > 1) parts.push(`is the network origin for ${u.length} distinct accounts`);
+    else parts.push(`is linked to ${u.length} account`);
+  } else {
+    parts.push(`Node ${name} (${selectedNode.type}) has ${neighbors.length} direct connection${neighbors.length !== 1 ? "s" : ""}`);
+  }
+
+  return parts.join(", ") + ".";
+}
+
+export default function NetworkVisualizer({ userId, token, compact = false }) {
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [hoveredLink, setHoveredLink] = useState(null);
+  const graphRef = useRef(null);
 
   useEffect(() => {
     if (!userId || !token) return;
-    
-    // Fetch neighbors list for the active user
     fetch(`http://localhost:8000/api/v1/graph/neighbors?node_id=${userId}&node_type=User`, {
-      headers: { "Authorization": `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(resData => {
-        if (resData && resData.nodes) {
-          setData(resData);
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.nodes) {
+          const links = (data.edges || []).map((e, i) => ({
+            id: `e${i}`,
+            source: e.source,
+            target: e.target,
+            relation: e.relation || e.type || "",
+          }));
+          setGraphData({ nodes: data.nodes, links });
         }
         setLoading(false);
       })
-      .catch(err => {
-        console.error("Failed to load graph nodes", err);
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, [userId, token]);
 
-  if (loading) {
-    return <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", padding: "20px" }}>Walking graph paths...</div>;
-  }
+  const neighborIds = useCallback(() => {
+    if (!selectedNode) return null;
+    const ids = new Set([selectedNode.id]);
+    graphData.links.forEach((l) => {
+      const s = typeof l.source === "object" ? l.source.id : l.source;
+      const t = typeof l.target === "object" ? l.target.id : l.target;
+      if (s === selectedNode.id) ids.add(t);
+      if (t === selectedNode.id) ids.add(s);
+    });
+    return ids;
+  }, [selectedNode, graphData.links]);
 
-  if (data.nodes.length === 0) {
-    return <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", padding: "20px" }}>No relational graph links found.</div>;
-  }
-
-  // Position nodes in a simple circle for visual clarity and reliability
-  const width = 340;
-  const height = 240;
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const radius = 80;
-
-  const positionedNodes = data.nodes.map((node, index) => {
-    if (index === 0) {
-      // Center the starting user node
-      return { ...node, x: centerX, y: centerY };
-    }
-    const angle = (2 * Math.PI * (index - 1)) / (data.nodes.length - 1);
+  const paintedData = React.useMemo(() => {
+    const nbrs = neighborIds();
     return {
-      ...node,
-      x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle)
+      nodes: graphData.nodes.map((n) => ({
+        ...n,
+        isSelected: selectedNode?.id === n.id,
+        isDimmed: nbrs !== null && !nbrs.has(n.id),
+      })),
+      links: graphData.links,
     };
-  });
+  }, [graphData, selectedNode, neighborIds]);
 
-  // Create lookup dictionary for coordinates
-  const nodeCoords = {};
-  positionedNodes.forEach(node => {
-    nodeCoords[node.id] = { x: node.x, y: node.y };
-  });
+  const summary = buildSummary(selectedNode, graphData.links);
+  const height = compact ? 280 : 400;
+
+  if (loading) {
+    return (
+      <div style={{ height: `${height}px` }} className="skeleton" />
+    );
+  }
+
+  if (graphData.nodes.length === 0) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: `${height}px`, color: "var(--fg-dim)", gap: "6px" }}>
+        <span style={{ fontSize: "1.4rem" }}>◌</span>
+        <p style={{ fontSize: "0.78rem", color: "var(--fg-muted)" }}>No relationship links found for this account.</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <svg width={width} height={height} style={{ backgroundColor: "rgba(9, 9, 11, 0.4)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-        {/* Draw edges/links */}
-        {data.edges.map((edge, idx) => {
-          const start = nodeCoords[edge.source];
-          const end = nodeCoords[edge.target];
-          if (!start || !end) return null;
-          
-          return (
-            <line
-              key={idx}
-              x1={start.x}
-              y1={start.y}
-              x2={end.x}
-              y2={end.y}
-              stroke="rgba(255, 255, 255, 0.15)"
-              strokeWidth="2"
-              strokeDasharray={edge.relation === "SHARED_WITH" ? "4" : "0"}
-            />
-          );
-        })}
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ border: "1px solid var(--border)", borderRadius: "3px", overflow: "hidden", position: "relative" }}>
+        <ForceGraph2D
+          ref={graphRef}
+          graphData={paintedData}
+          nodeId="id"
+          backgroundColor="#0A0A0C"
+          height={height}
+          nodeCanvasObject={(node, ctx, globalScale) => drawNode(node, ctx, globalScale)}
+          nodeCanvasObjectMode={() => "replace"}
+          linkColor={(link) => {
+            if (hoveredLink === link) return "rgba(201,151,74,0.85)";
+            if (selectedNode) {
+              const nbrs = neighborIds();
+              const s = typeof link.source === "object" ? link.source.id : link.source;
+              const t = typeof link.target === "object" ? link.target.id : link.target;
+              if (nbrs?.has(s) && nbrs?.has(t)) return "rgba(255,255,255,0.35)";
+              return "rgba(255,255,255,0.04)";
+            }
+            return "rgba(255,255,255,0.18)";
+          }}
+          linkWidth={1}
+          linkLineDash={(l) => (l.relation === "SHARED_WITH" ? [3, 3] : null)}
+          onNodeClick={(node) => setSelectedNode((p) => p?.id === node.id ? null : node)}
+          onBackgroundClick={() => setSelectedNode(null)}
+          onLinkHover={setHoveredLink}
+          enableNodeDrag={true}
+          d3AlphaDecay={0.03}
+          d3VelocityDecay={0.35}
+          cooldownTicks={80}
+        />
 
-        {/* Draw nodes */}
-        {positionedNodes.map((node) => {
-          // Color coding by type
-          let color = "var(--accent)";
-          if (node.type === "User") color = "#a855f7";      // Purple
-          else if (node.type === "Device") color = "var(--success)"; // Green
-          else if (node.type === "IP") color = "var(--warning)";     // Yellow
-          else if (node.type === "Merchant") color = "var(--danger)"; // Red
-
-          const isCenter = node.id === `User:${userId}`;
-
-          return (
-            <g key={node.id}>
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={isCenter ? 12 : 8}
-                fill={color}
-                stroke="#fff"
-                strokeWidth={isCenter ? 2 : 1}
-              />
-              <text
-                x={node.x}
-                y={node.y - 14}
-                fill="#f4f4f5"
-                fontSize="9"
-                fontWeight="600"
-                textAnchor="middle"
-                style={{ pointerEvents: "none", filter: "drop-shadow(0px 1px 2px rgba(0,0,0,0.8))" }}
-              >
-                {node.label.length > 14 ? node.label.substring(0, 12) + "..." : node.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap", justifyContent: "center" }}>
-        <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• User Account (Purple)</span>
-        <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• Device Fingerprint (Green)</span>
-        <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• IP Address (Yellow)</span>
-        <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>• Transaction (Blue)</span>
+        {/* Hovering edge label */}
+        {hoveredLink && (
+          <div style={{
+            position: "absolute",
+            bottom: "8px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "3px",
+            padding: "3px 10px",
+            fontSize: "0.68rem",
+            color: "var(--fg)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}>
+            <span style={{ color: "var(--accent-text)", fontStyle: "italic" }}>
+              {getEdgeLabel(hoveredLink.relation)}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Plain-English selection summary */}
+      {selectedNode && summary && (
+        <div style={{ padding: "8px 10px", backgroundColor: "var(--bg-inset)", border: "1px solid var(--border-active)", borderRadius: "3px" }}>
+          <p style={{ fontSize: "0.7rem", fontWeight: "700", color: "var(--accent-text)", marginBottom: "3px" }}>
+            {selectedNode.type}: {selectedNode.label || selectedNode.id}
+          </p>
+          <p style={{ fontSize: "0.72rem", color: "var(--fg)", lineHeight: "1.5" }}>{summary}</p>
+        </div>
+      )}
+
+      {/* Compact legend strip */}
+      {compact && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+          {Object.entries(NODE_CONFIG).map(([type, cfg]) => (
+            <span key={type} style={{ fontSize: "0.65rem", color: "var(--fg-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+              <svg width="10" height="10">
+                {cfg.shape === "circle"   && <circle cx="5" cy="5" r="4" fill={cfg.color} />}
+                {cfg.shape === "square"   && <rect x="1" y="1" width="8" height="8" fill={cfg.color} />}
+                {cfg.shape === "diamond"  && <polygon points="5,1 9,5 5,9 1,5" fill={cfg.color} />}
+                {cfg.shape === "triangle" && <polygon points="5,1 9,9 1,9" fill={cfg.color} />}
+                {cfg.shape === "hexagon"  && (
+                  <polygon points={Array.from({ length: 6 }, (_, i) => {
+                    const a = (Math.PI / 3) * i - Math.PI / 6;
+                    return `${5 + 4 * Math.cos(a)},${5 + 4 * Math.sin(a)}`;
+                  }).join(" ")} fill={cfg.color} />
+                )}
+              </svg>
+              {type}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

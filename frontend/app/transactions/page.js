@@ -3,7 +3,33 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Search, Eye, Filter } from "lucide-react";
+
+function relativeTime(isoString) {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function getRiskColor(score) {
+  if (score >= 75) return "var(--risk-high)";
+  if (score >= 40) return "var(--risk-warn)";
+  return "var(--risk-safe)";
+}
+
+function statusBadgeClass(status) {
+  const map = {
+    Approved: "badge badge-approved",
+    Flagged: "badge badge-warn",
+    Escalated: "badge badge-escalated",
+    Blocked: "badge badge-blocked",
+    Pending: "badge badge-warn",
+  };
+  return map[status] || "badge badge-neutral";
+}
 
 export default function TransactionsQueue() {
   const { token } = useAuth();
@@ -11,76 +37,97 @@ export default function TransactionsQueue() {
   const [statusFilter, setStatusFilter] = useState("");
   const [minScore, setMinScore] = useState(0);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   const fetchTransactions = () => {
     if (!token) return;
-    
     let url = "http://localhost:8000/api/v1/transactions?";
     if (statusFilter) url += `status=${statusFilter}&`;
     if (minScore > 0) url += `min_score=${minScore}&`;
-    
-    fetch(url, {
-      headers: { "Authorization": `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setTransactions(data);
-        }
+
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setTransactions(data);
+        setLoading(false);
       })
-      .catch(err => console.error("Failed to load queue", err));
+      .catch(() => setLoading(false));
   };
 
   useEffect(() => {
+    setLoading(true);
     fetchTransactions();
-    // Poll queue list every 6 seconds
     const interval = setInterval(fetchTransactions, 6000);
     return () => clearInterval(interval);
   }, [token, statusFilter, minScore]);
 
-  // Apply local text search filter
-  const filteredTransactions = transactions.filter(tx => 
-    tx.transaction_id.toLowerCase().includes(search.toLowerCase()) ||
-    tx.user_id.toLowerCase().includes(search.toLowerCase()) ||
-    tx.merchant_id.toLowerCase().includes(search.toLowerCase())
+  const filtered = transactions.filter(
+    (tx) =>
+      tx.transaction_id.toLowerCase().includes(search.toLowerCase()) ||
+      tx.user_id.toLowerCase().includes(search.toLowerCase()) ||
+      tx.merchant_id.toLowerCase().includes(search.toLowerCase())
   );
+
+  const escalatedCount = transactions.filter((t) => t.status === "Escalated").length;
+  const flaggedCount = transactions.filter((t) => t.status !== "Approved" && t.status !== "Blocked").length;
 
   return (
     <div>
-      <h1>Transactions Queue</h1>
+      {/* Page header */}
+      <div className="page-header">
+        <h1 className="page-title">Investigation Queue</h1>
+        <span className="page-subtitle">
+          {loading ? "Loading…" : `${flaggedCount} flagged · ${escalatedCount} escalated`}
+        </span>
+      </div>
 
-      {/* Filters Bar */}
-      <div className="glass-card" style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center", marginBottom: "25px" }}>
-        
+      {/* Filter bar — compact strip, no glass card */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "12px",
+          alignItems: "center",
+          marginBottom: "14px",
+          padding: "10px 14px",
+          borderBottom: "1px solid var(--border)",
+          backgroundColor: "var(--bg-surface)",
+          borderRadius: "4px 4px 0 0",
+        }}
+      >
         {/* Search */}
-        <div style={{ flexGrow: 1, minWidth: "200px", position: "relative" }}>
-          <Search size={18} color="var(--text-muted)" style={{ position: "absolute", left: "12px", top: "12px" }} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search transaction ID, customer, merchant..."
-            style={{ paddingLeft: "38px" }}
-          />
-        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter by transaction ID, customer, merchant…"
+          style={{ width: "280px", padding: "6px 10px", fontSize: "0.78rem" }}
+        />
 
-        {/* Status Dropdown */}
-        <div style={{ width: "160px", display: "flex", alignItems: "center", gap: "10px" }}>
-          <Filter size={18} color="var(--text-muted)" />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">All Statuses</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Blocked">Blocked</option>
-            <option value="Escalated">Escalated</option>
-          </select>
-        </div>
+        {/* Status filter */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ width: "140px", padding: "6px 10px", fontSize: "0.78rem" }}
+        >
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Blocked">Blocked</option>
+          <option value="Escalated">Escalated</option>
+        </select>
 
-        {/* Risk Score Threshold */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-            Min Risk: <strong>{minScore}%</strong>
+        {/* Risk threshold */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontSize: "0.72rem", color: "var(--fg-muted)", whiteSpace: "nowrap" }}>
+            Min risk:{" "}
+            <span
+              className="tabular"
+              style={{ color: minScore >= 75 ? "var(--risk-high)" : minScore >= 40 ? "var(--risk-warn)" : "var(--fg)", fontWeight: "700" }}
+            >
+              {minScore}%
+            </span>
           </span>
           <input
             type="range"
@@ -88,75 +135,115 @@ export default function TransactionsQueue() {
             max="100"
             value={minScore}
             onChange={(e) => setMinScore(parseInt(e.target.value))}
-            style={{ width: "120px", height: "4px", padding: 0, cursor: "pointer" }}
+            style={{ width: "100px", height: "3px", padding: 0, cursor: "pointer" }}
           />
         </div>
 
+        <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--fg-dim)" }}>
+          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
       {/* Queue Table */}
-      <div className="glass-card" style={{ padding: "0 10px" }}>
+      <div className="panel" style={{ padding: "0", borderRadius: "0 0 4px 4px", borderTop: "none" }}>
         <div className="data-table-container">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Transaction ID</th>
-                <th>Timestamp</th>
+                <th>Time</th>
                 <th>Customer</th>
-                <th>Amount</th>
+                <th style={{ textAlign: "right" }}>Amount</th>
                 <th>Merchant</th>
-                <th>Risk Score</th>
+                <th style={{ textAlign: "right" }}>Risk Score</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 8 }).map((_, j) => (
+                      <td key={j}>
+                        <div className="skeleton" style={{ height: "10px", width: j === 7 ? "40px" : "80%" }} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "30px", color: "var(--text-muted)" }}>
-                    No payments found matching the current search parameters.
+                  <td
+                    colSpan="8"
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                      color: "var(--fg-muted)",
+                      fontSize: "0.82rem",
+                    }}
+                  >
+                    No transactions match these filters — try widening the risk threshold or clearing the status filter.
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx) => {
-                  // Determine score label color
-                  let scoreColor = "var(--success)";
-                  if (tx.risk_score >= 75.0) scoreColor = "var(--danger)";
-                  else if (tx.risk_score >= 40.0) scoreColor = "var(--warning)";
-
-                  // Determine status badge class
-                  const statusClass = `status-badge status-${tx.status.toLowerCase()}`;
-
+                filtered.map((tx) => {
+                  const riskColor = getRiskColor(tx.risk_score);
                   return (
                     <tr key={tx.id}>
-                      <td style={{ fontWeight: "600" }}>{tx.transaction_id}</td>
-                      <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
-                        {new Date(tx.timestamp).toLocaleString()}
-                      </td>
-                      <td>{tx.user_id}</td>
-                      <td>{tx.currency} {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td>{tx.merchant_category}</td>
-                      <td style={{ fontWeight: "700", color: scoreColor }}>
-                        {tx.risk_score.toFixed(0)}%
-                      </td>
                       <td>
-                        <span className={statusClass}>{tx.status}</span>
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => router.push(`/transactions/${tx.id}`)}
-                          className="secondary"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "6px 10px",
-                            fontSize: "0.8rem"
-                          }}
+                        <span
+                          className="tabular"
+                          style={{ fontWeight: "600", fontSize: "0.78rem" }}
                         >
-                          <Eye size={14} />
-                          Investigate
-                        </button>
+                          {tx.transaction_id}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          title={new Date(tx.timestamp).toLocaleString()}
+                          style={{ color: "var(--fg-muted)", fontSize: "0.75rem", cursor: "default" }}
+                        >
+                          {relativeTime(tx.timestamp)}
+                        </span>
+                      </td>
+                      <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>
+                        {tx.user_id}
+                      </td>
+                      <td className="num">
+                        <span style={{ fontSize: "0.82rem" }}>
+                          {tx.currency}{" "}
+                          {tx.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td style={{ color: "var(--fg-muted)", fontSize: "0.78rem" }}>
+                        {tx.merchant_category}
+                      </td>
+                      <td className="num">
+                        <div className="risk-inline" style={{ justifyContent: "flex-end" }}>
+                          <div className="risk-inline-bar">
+                            <div
+                              className="risk-inline-fill"
+                              style={{ width: `${tx.risk_score}%`, backgroundColor: riskColor }}
+                            />
+                          </div>
+                          <span
+                            className="tabular"
+                            style={{ fontSize: "0.82rem", fontWeight: "700", color: riskColor, minWidth: "32px" }}
+                          >
+                            {tx.risk_score.toFixed(0)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={statusBadgeClass(tx.status)}>{tx.status}</span>
+                      </td>
+                      <td>
+                        <span
+                          className="text-action"
+                          onClick={() => router.push(`/transactions/${tx.id}`)}
+                        >
+                          Open →
+                        </span>
                       </td>
                     </tr>
                   );

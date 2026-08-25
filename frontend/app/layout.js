@@ -4,7 +4,7 @@ import "./globals.css";
 import React from "react";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
-import { Shield, LayoutDashboard, ListTodo, FileText, Share2, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 const NavigationShell = ({ children }) => {
   const { user, logout, loading } = useAuth();
@@ -19,88 +19,80 @@ const NavigationShell = ({ children }) => {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
-        <p style={{ color: "var(--accent)", fontSize: "1.2rem", fontWeight: "600" }}>Booting RazorGuard Console...</p>
+      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--bg)" }}>
+        {/* Skeleton sidebar */}
+        <aside style={{ width: "var(--sidebar-width)", borderRight: "1px solid var(--border)", padding: "18px 16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div className="skeleton" style={{ height: "22px", width: "80px", marginBottom: "8px" }} />
+          {[1,2,3,4].map(i => (
+            <div key={i} className="skeleton" style={{ height: "14px", width: `${55 + i * 8}%` }} />
+          ))}
+        </aside>
+        {/* Skeleton content */}
+        <main style={{ flex: 1, padding: "22px 28px", display: "flex", flexDirection: "column", gap: "14px" }}>
+          <div className="skeleton" style={{ height: "18px", width: "220px" }} />
+          <div className="skeleton" style={{ height: "14px", width: "340px" }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginTop: "8px" }}>
+            {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: "64px" }} />)}
+          </div>
+        </main>
       </div>
     );
   }
 
-  // Login page doesn't get the sidebar layout
   if (!user || pathname === "/login") {
     return <>{children}</>;
   }
 
   const navItems = [
-    { name: "Risk Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
-    { name: "Transactions Queue", path: "/transactions", icon: <ListTodo size={20} /> },
-    { name: "Network Graph", path: "/graph", icon: <Share2 size={20} /> },
-    { name: "Compliance Policies", path: "/policies", icon: <FileText size={20} /> },
+    { name: "Overview", path: "/dashboard" },
+    { name: "Investigation Queue", path: "/transactions" },
+    { name: "Relationship Map", path: "/graph" },
+    { name: "Policy Vault", path: "/policies" },
   ];
 
   return (
     <div className="app-container">
       <aside className="sidebar">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "35px" }}>
-          <Shield size={28} color="var(--accent)" />
-          <span style={{ fontWeight: "700", fontSize: "1.2rem", letterSpacing: "-0.05em" }}>RazorGuard AI</span>
+        {/* Logo mark */}
+        <div className="sidebar-logo">
+          <span className="sidebar-logo-mark">RG</span>
+          <span className="sidebar-logo-text">RazorGuard</span>
         </div>
-        
-        <nav style={{ display: "flex", flexDirection: "column", gap: "8px", flexGrow: 1 }}>
+
+        {/* Navigation — text-only, no icon on every item */}
+        <nav className="sidebar-nav">
           {navItems.map((item) => {
             const active = pathname === item.path || pathname.startsWith(item.path + "/");
             return (
               <div
                 key={item.name}
+                className={`nav-item${active ? " active" : ""}`}
                 onClick={() => router.push(item.path)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "12px 16px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontSize: "0.9rem",
-                  fontWeight: "500",
-                  backgroundColor: active ? "rgba(56, 189, 248, 0.1)" : "transparent",
-                  color: active ? "var(--accent)" : "var(--text-muted)",
-                  transition: "background-color 0.2s, color 0.2s"
-                }}
               >
-                {item.icon}
                 {item.name}
               </div>
             );
           })}
         </nav>
 
-        <div style={{ borderTop: "1px solid var(--card-border)", paddingTop: "15px", display: "flex", flexDirection: "column", gap: "12px" }}>
+        {/* User footer */}
+        <div className="sidebar-footer">
           <div>
-            <p style={{ fontSize: "0.85rem", fontWeight: "600" }}>{user.full_name}</p>
-            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{user.role}</p>
+            <p className="sidebar-user-name">{user.full_name}</p>
+            <p className="sidebar-user-role">Active Session — Risk Ops Console</p>
           </div>
           <button
             onClick={logout}
-            className="secondary"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              padding: "8px 12px",
-              fontSize: "0.85rem"
-            }}
+            className="sidebar-signout"
           >
-            <LogOut size={16} />
             Sign Out
           </button>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "10px", marginTop: "5px" }}>
-            <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", lineHeight: "1.3", fontStyle: "italic", textAlign: "center" }}>
-              ⚠️ All transaction, customer and relationship data in this environment is synthetic and does not represent real payment activity.
-            </p>
-          </div>
+          <p className="sidebar-disclaimer">
+            All transaction, customer, and relationship data in this environment is synthetic.
+          </p>
         </div>
       </aside>
-      
+
       <main className="main-content">
         {children}
       </main>
@@ -111,6 +103,12 @@ const NavigationShell = ({ children }) => {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body>
         <AuthProvider>
           <NavigationShell>{children}</NavigationShell>

@@ -13,6 +13,7 @@
     "react-dom": "^19.0.0-rc",
     "lucide-react": "^0.368.0",
     "recharts": "^2.12.3",
+    "react-force-graph-2d": "^1.25.0",
     "clsx": "^2.1.0",
     "tailwind-merge": "^2.2.2"
   }

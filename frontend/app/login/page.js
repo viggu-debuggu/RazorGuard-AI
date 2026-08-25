@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,9 +13,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   React.useEffect(() => {
-    if (user) {
-      router.push("/dashboard");
-    }
+    if (user) router.push("/dashboard");
   }, [user]);
 
   const handleSubmit = async (e) => {
@@ -27,78 +24,131 @@ export default function LoginPage() {
       await login(email, password);
       router.push("/dashboard");
     } catch (err) {
-      setError(err.message || "Failed to log in.");
+      setError(err.message || "Authentication failed. Check your credentials.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div style={{
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      minHeight: "100vh",
-      background: "radial-gradient(circle at center, #0c1220 0%, #09090b 100%)",
-      padding: "20px"
-    }}>
-      <div className="glass-card" style={{ width: "100%", maxWidth: "400px", padding: "40px 30px" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginBottom: "30px" }}>
-          <Shield size={44} color="var(--accent)" />
-          <h2 style={{ fontSize: "1.6rem", fontWeight: "700", letterSpacing: "-0.05em", color: "#fff" }}>RazorGuard AI</h2>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", textAlign: "center" }}>
-            Autonomous Payment Risk Management Portal
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        backgroundColor: "var(--bg)",
+        padding: "20px",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "360px",
+          backgroundColor: "var(--bg-surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "4px",
+          padding: "36px 32px",
+        }}
+      >
+        {/* Logo */}
+        <div style={{ marginBottom: "28px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "2rem",
+                color: "var(--accent-text)",
+                lineHeight: 1,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              RG
+            </span>
+            <span
+              style={{
+                fontSize: "0.65rem",
+                fontWeight: "700",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--fg-muted)",
+              }}
+            >
+              RazorGuard
+            </span>
+          </div>
+          <p style={{ fontSize: "0.78rem", color: "var(--fg-muted)", lineHeight: "1.4" }}>
+            Post-escalation investigation console for risk operations analysts.
           </p>
         </div>
 
+        {/* Error */}
         {error && (
-          <div style={{
-            backgroundColor: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.3)",
-            color: "var(--danger)",
-            padding: "12px",
-            borderRadius: "8px",
-            fontSize: "0.85rem",
-            marginBottom: "20px"
-          }}>
+          <div
+            style={{
+              backgroundColor: "var(--risk-high-bg)",
+              border: "1px solid var(--risk-high-border)",
+              color: "var(--risk-high)",
+              padding: "8px 12px",
+              borderRadius: "3px",
+              fontSize: "0.78rem",
+              marginBottom: "16px",
+              lineHeight: "1.4",
+            }}
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           <div>
-            <label style={{ display: "block", fontSize: "0.8rem", fontWeight: "600", color: "var(--text-muted)", marginBottom: "6px" }}>
-              Analyst Email
-            </label>
+            <label>Analyst Email</label>
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="analyst@razorguard.ai"
+              autoComplete="email"
               required
             />
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: "0.8rem", fontWeight: "600", color: "var(--text-muted)", marginBottom: "6px" }}>
-              Password
-            </label>
+            <label>Password</label>
             <input
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </div>
 
-          <button type="submit" disabled={submitting} style={{ marginTop: "10px", padding: "12px" }}>
-            {submitting ? "Signing In..." : "Access Console"}
+          <button
+            id="login-submit"
+            type="submit"
+            disabled={submitting}
+            style={{ marginTop: "6px", padding: "10px" }}
+          >
+            {submitting ? "Authenticating…" : "Access Console"}
           </button>
         </form>
-        
-        <div style={{ marginTop: "25px", fontSize: "0.75rem", color: "var(--text-muted)", textAlign: "center" }}>
-          <p>Confidential analyst interface. Authorized login credentials only.</p>
+
+        {/* Footer notice */}
+        <div
+          style={{
+            marginTop: "24px",
+            paddingTop: "16px",
+            borderTop: "1px solid var(--border-subtle)",
+          }}
+        >
+          <p style={{ fontSize: "0.68rem", color: "var(--fg-dim)", lineHeight: "1.4" }}>
+            Authorized risk operations personnel only. All sessions are logged and audited.
+          </p>
         </div>
       </div>
     </div>

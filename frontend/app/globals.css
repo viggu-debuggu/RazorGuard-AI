@@ -1,60 +1,129 @@
+/* ============================================================
+   RazorGuard AI — Design System
+   Internal fintech risk-ops tool. Not a marketing page.
+   ============================================================ */
+
+/* Google Fonts — DM Serif Display for numeric/display emphasis */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');
+
 :root {
-  --background: #09090b;
-  --foreground: #f4f4f5;
-  --card-bg: rgba(24, 24, 27, 0.6);
-  --card-border: rgba(39, 39, 42, 0.6);
-  --accent: #38bdf8;       /* Razorpay Sky Blue */
-  --accent-hover: #0ea5e9;
-  --text-muted: #a1a1aa;
-  
-  --success: #10b981;      /* Emerald Green */
-  --warning: #f59e0b;      /* Amber Yellow */
-  --danger: #ef4444;       /* Rose Red */
-  
-  --sidebar-width: 240px;
+  /* === Base Palette === */
+  --bg:          #0D0D0F;           /* Near-black ink base */
+  --bg-raised:   #111114;           /* Slightly lifted surface */
+  --bg-surface:  #161619;           /* Card / panel surface */
+  --bg-inset:    #0A0A0C;           /* Inset / code / table cells */
+
+  /* === Borders === */
+  --border:      #1F1F24;           /* Default border */
+  --border-subtle: #191919;         /* Very faint separator */
+  --border-active: #3A3A44;         /* Focused / selected */
+
+  /* === Foreground === */
+  --fg:          #E8E8EC;           /* Primary text */
+  --fg-muted:    #7A7A88;           /* Secondary / labels */
+  --fg-dim:      #44444E;           /* Disabled / placeholder */
+
+  /* === Accent — Amber Gold (single accent color) === */
+  --accent:      #C9974A;           /* Primary action, highlights */
+  --accent-dim:  rgba(201, 151, 74, 0.12);
+  --accent-text: #DBA862;           /* Readable accent on dark bg */
+
+  /* === Risk Severity Ramp (3-step) === */
+  --risk-safe:   #3D7A5C;           /* Safe / approved */
+  --risk-safe-bg: rgba(61, 122, 92, 0.10);
+  --risk-safe-border: rgba(61, 122, 92, 0.30);
+
+  --risk-warn:   #B08040;           /* Suspicious / monitor */
+  --risk-warn-bg: rgba(176, 128, 64, 0.10);
+  --risk-warn-border: rgba(176, 128, 64, 0.30);
+
+  --risk-high:   #B84040;           /* High risk / escalated */
+  --risk-high-bg: rgba(184, 64, 64, 0.10);
+  --risk-high-border: rgba(184, 64, 64, 0.30);
+
+  /* === Layout === */
+  --sidebar-width: 216px;
+
+  /* === Typography === */
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono:    "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
 }
 
-* {
+/* ============================================================
+   Reset
+   ============================================================ */
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
   min-height: 100vh;
   overflow-x: hidden;
+  line-height: 1.5;
 }
 
-/* Glassmorphism utility card */
-.glass-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 20px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+/* ============================================================
+   Typography
+   ============================================================ */
+h1 {
+  font-family: var(--font-body);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  margin-bottom: 20px;
 }
 
-.glass-card:hover {
-  border-color: rgba(56, 189, 248, 0.4);
+h2 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  margin-bottom: 12px;
 }
 
-/* Flex layout core components */
+/* Display numerics — DM Serif Display */
+.display-num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Monospace tabular numbers for financial data */
+.tabular, .mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875em;
+}
+
+/* ============================================================
+   Layout Shell
+   ============================================================ */
 .app-container {
   display: flex;
   min-height: 100vh;
 }
 
+/* ============================================================
+   Sidebar
+   ============================================================ */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: #0c0c0e;
-  border-right: 1px solid var(--card-border);
-  padding: 20px 15px;
+  background-color: var(--bg);
+  border-right: 1px solid var(--border);
+  padding: 18px 0;
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -62,141 +131,467 @@ body {
   z-index: 10;
 }
 
+.sidebar-logo {
+  padding: 0 16px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sidebar-logo-mark {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--accent-text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-logo-text {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+  flex-grow: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  transition: color 0.15s, background-color 0.15s;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  user-select: none;
+}
+
+.nav-item:hover {
+  color: var(--fg);
+  background-color: var(--bg-raised);
+}
+
+.nav-item.active {
+  color: var(--accent-text);
+  border-left-color: var(--accent);
+  background-color: var(--accent-dim);
+  font-weight: 600;
+}
+
+.sidebar-footer {
+  padding: 12px 16px 0;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-user-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.sidebar-user-role {
+  font-size: 0.7rem;
+  color: var(--fg-muted);
+  margin-top: 1px;
+}
+
+.sidebar-signout {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 3px;
+  transition: color 0.15s, border-color 0.15s;
+  width: 100%;
+  text-align: center;
+  font-weight: 500;
+  font-family: var(--font-body);
+}
+
+.sidebar-signout:hover {
+  color: var(--fg);
+  border-color: var(--border-active);
+  background: none;
+  transform: none;
+}
+
+.sidebar-disclaimer {
+  font-size: 0.62rem;
+  color: var(--fg-dim);
+  line-height: 1.4;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ============================================================
+   Main Content
+   ============================================================ */
 .main-content {
   margin-left: var(--sidebar-width);
   flex-grow: 1;
-  padding: 30px 40px;
+  padding: 22px 28px;
   min-height: 100vh;
-  background: radial-gradient(circle at 80% 20%, #0c1220 0%, #09090b 100%);
+  background-color: var(--bg);
 }
 
-/* Typography styles */
-h1 {
-  font-size: 2.2rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  margin-bottom: 25px;
-  background: linear-gradient(to right, #ffffff 30%, #38bdf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* ============================================================
+   Cards / Panels
+   ============================================================ */
+.panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
 }
 
-h2 {
-  font-size: 1.4rem;
+/* Legacy alias — keep working */
+.glass-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+
+/* ============================================================
+   Page Header
+   ============================================================ */
+.page-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.page-title {
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 15px;
+  color: var(--fg);
+  letter-spacing: -0.01em;
 }
 
-/* Status pills custom designs */
-.status-badge {
+.page-subtitle {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+}
+
+/* ============================================================
+   Status Badges — rectangular severity-bar style
+   ============================================================ */
+.badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  border-left: 2px solid;
 }
 
-.status-approved {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: var(--success);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+.badge-safe, .badge-approved {
+  background-color: var(--risk-safe-bg);
+  color: var(--risk-safe);
+  border-left-color: var(--risk-safe);
 }
 
-.status-flagged {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+.badge-warn, .badge-flagged, .badge-pending {
+  background-color: var(--risk-warn-bg);
+  color: var(--risk-warn);
+  border-left-color: var(--risk-warn);
 }
 
-.status-escalated {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+.badge-high, .badge-escalated {
+  background-color: var(--risk-high-bg);
+  color: var(--risk-high);
+  border-left-color: var(--risk-high);
 }
 
-.status-blocked {
-  background-color: rgba(161, 161, 170, 0.15);
-  color: var(--text-muted);
-  border: 1px solid rgba(161, 161, 170, 0.3);
+.badge-neutral, .badge-blocked {
+  background-color: rgba(122, 122, 136, 0.10);
+  color: var(--fg-muted);
+  border-left-color: var(--fg-dim);
 }
 
-/* Custom interactive input elements */
-input, select, textarea {
-  width: 100%;
-  background: rgba(9, 9, 11, 0.8);
-  border: 1px solid var(--card-border);
-  color: var(--foreground);
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  outline: none;
-  transition: border-color 0.2s ease;
+/* Legacy compatibility */
+.status-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 3px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border-left: 2px solid; }
+.status-approved { background-color: var(--risk-safe-bg); color: var(--risk-safe); border-left-color: var(--risk-safe); }
+.status-flagged { background-color: var(--risk-warn-bg); color: var(--risk-warn); border-left-color: var(--risk-warn); }
+.status-escalated { background-color: var(--risk-high-bg); color: var(--risk-high); border-left-color: var(--risk-high); }
+.status-blocked { background-color: rgba(122, 122, 136, 0.10); color: var(--fg-muted); border-left-color: var(--fg-dim); }
+.status-pending { background-color: var(--risk-warn-bg); color: var(--risk-warn); border-left-color: var(--risk-warn); }
+
+/* ============================================================
+   Score Gauge — segmented horizontal bar
+   ============================================================ */
+.score-gauge-track {
+  height: 5px;
+  background-color: var(--bg-inset);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
 }
 
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent);
+.score-gauge-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
 }
 
-button {
-  background-color: var(--accent);
-  color: #09090b;
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease, transform 0.1s ease;
-}
+.score-gauge-fill-safe  { background-color: var(--risk-safe); }
+.score-gauge-fill-warn  { background-color: var(--risk-warn); }
+.score-gauge-fill-high  { background-color: var(--risk-high); }
+.score-gauge-fill-blue  { background-color: #5B7FD4; }
 
-button:hover {
-  background-color: var(--accent-hover);
-}
-
-button:active {
-  transform: scale(0.98);
-}
-
-button.secondary {
-  background-color: transparent;
-  border: 1px solid var(--card-border);
-  color: var(--foreground);
-}
-
-button.secondary:hover {
-  background-color: rgba(39, 39, 42, 0.4);
-}
-
-/* Grid alignment tables */
+/* ============================================================
+   Tables
+   ============================================================ */
 .data-table-container {
   overflow-x: auto;
-  margin-top: 15px;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  font-size: 0.82rem;
 }
 
 .data-table th {
-  padding: 14px 16px;
-  border-bottom: 2px solid var(--card-border);
-  font-size: 0.8rem;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem;
   text-transform: uppercase;
-  color: var(--text-muted);
+  letter-spacing: 0.07em;
+  color: var(--fg-muted);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .data-table td {
-  padding: 16px;
-  border-bottom: 1px solid var(--card-border);
-  font-size: 0.9rem;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--fg);
+  vertical-align: middle;
 }
 
-.data-table tr:hover td {
-  background-color: rgba(39, 39, 42, 0.2);
+.data-table td.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover td {
+  background-color: var(--bg-raised);
+}
+
+/* ============================================================
+   Inputs & Forms
+   ============================================================ */
+input, select, textarea {
+  width: 100%;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 12px;
+  border-radius: 3px;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+input::placeholder {
+  color: var(--fg-dim);
+}
+
+label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin-bottom: 5px;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+button {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  border: none;
+}
+
+button.primary, button:not(.secondary):not(.ghost):not(.action-approve):not(.action-block) {
+  background-color: var(--accent);
+  color: #0D0D0F;
+}
+
+button.primary:hover, button:not(.secondary):not(.ghost):not(.action-approve):not(.action-block):hover {
+  opacity: 0.88;
+  transform: none;
+  background-color: var(--accent);
+}
+
+button:active {
+  transform: scale(0.99);
+}
+
+button.secondary {
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+
+button.secondary:hover {
+  border-color: var(--border-active);
+  color: var(--fg);
+  background-color: transparent;
+}
+
+button.ghost {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  padding: 6px 10px;
+}
+
+button.ghost:hover {
+  color: var(--fg);
+  background-color: var(--bg-raised);
+}
+
+button.action-approve {
+  background-color: var(--risk-safe-bg);
+  border: 1px solid var(--risk-safe-border);
+  color: var(--risk-safe);
+  font-weight: 700;
+}
+
+button.action-approve:hover {
+  background-color: rgba(61, 122, 92, 0.18);
+}
+
+button.action-block {
+  background-color: var(--risk-high-bg);
+  border: 1px solid var(--risk-high-border);
+  color: var(--risk-high);
+  font-weight: 700;
+}
+
+button.action-block:hover {
+  background-color: rgba(184, 64, 64, 0.18);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Loading Skeleton
+   ============================================================ */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-raised) 50%, var(--bg-surface) 75%);
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   Inline risk score bar (table use)
+   ============================================================ */
+.risk-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk-inline-bar {
+  width: 48px;
+  height: 3px;
+  background-color: var(--bg-inset);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.risk-inline-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   Misc utilities
+   ============================================================ */
+.text-muted { color: var(--fg-muted); }
+.text-dim   { color: var(--fg-dim); }
+.text-accent { color: var(--accent-text); }
+.text-safe  { color: var(--risk-safe); }
+.text-warn  { color: var(--risk-warn); }
+.text-high  { color: var(--risk-high); }
+
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 16px 0;
+}
+
+/* Link-style text action */
+.text-action {
+  color: var(--accent-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.text-action:hover {
+  text-decoration: underline;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-active); }

@@ -2,51 +2,51 @@
 
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { FileUp, Search, BookOpen, AlertCircle } from "lucide-react";
 
 export default function PoliciesCenter() {
   const { token } = useAuth();
-  
-  // Document Upload State
+
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Search RAG State
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null);
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!file || !token) return;
-    
+
     setUploading(true);
     setUploadStatus(null);
-    
+
     const formData = new FormData();
     formData.append("title", title);
     formData.append("file", file);
-    
+
     try {
       const response = await fetch("http://localhost:8000/api/v1/policies/upload", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
-      
       const data = await response.json();
       if (response.ok) {
-        setUploadStatus({ success: true, message: `Successfully uploaded manual and indexed ${data.chunks_indexed} semantic chunks.` });
+        setUploadStatus({
+          success: true,
+          message: `Indexed ${data.chunks_indexed} semantic chunks from "${title}".`,
+        });
         setTitle("");
         setFile(null);
         e.target.reset();
       } else {
-        setUploadStatus({ success: false, message: data.detail || "Failed to upload manual." });
+        setUploadStatus({ success: false, message: data.detail || "Upload failed." });
       }
-    } catch (err) {
-      setUploadStatus({ success: false, message: "Network connection error occurred." });
+    } catch {
+      setUploadStatus({ success: false, message: "Network error during upload." });
     } finally {
       setUploading(false);
     }
@@ -55,18 +55,17 @@ export default function PoliciesCenter() {
   const handleSearchSubmit = async (e) => {
     e.preventDefault();
     if (!searchQuery || !token) return;
-    
+
     setSearching(true);
+    setSearchResults([]);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/policies/search?query=${encodeURIComponent(searchQuery)}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      
+      const response = await fetch(
+        `http://localhost:8000/api/v1/policies/search?query=${encodeURIComponent(searchQuery)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data);
-      } else {
-        console.error("Failed to query policies store.");
       }
     } catch (err) {
       console.error(err);
@@ -77,127 +76,210 @@ export default function PoliciesCenter() {
 
   return (
     <div>
-      <h1>Compliance Policy Center</h1>
+      {/* Page header */}
+      <div className="page-header">
+        <h1 className="page-title">Policy Vault</h1>
+        <span className="page-subtitle">
+          Indexed compliance manuals — queried via Hybrid RRF (dense + sparse retrieval)
+        </span>
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "30px" }}>
-        
-        {/* Left Column: Upload New Policy */}
-        <div className="glass-card" style={{ height: "fit-content" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "15px" }}>
-            <FileUp size={22} color="var(--accent)" />
-            <h2>Upload Risk Guidelines</h2>
-          </div>
-          
-          <form onSubmit={handleUploadSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "4px" }}>
-                Manual/Policy Title
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Card-Not-Present Risk Policy"
-                required
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "4px" }}>
-                Select File (PDF / TXT)
-              </label>
-              <input
-                type="file"
-                accept=".pdf,.txt"
-                onChange={(e) => setFile(e.target.files[0])}
-                style={{ padding: "8px 0" }}
-                required
-              />
-            </div>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "12px", alignItems: "start" }}>
+
+        {/* Left: Upload form */}
+        <div className="panel">
+          <h2>Import Policy Manual</h2>
+          <form
+            onSubmit={handleUploadSubmit}
+            style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}
+          >
+            <fieldset
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: "3px",
+                padding: "10px 12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <div>
+                <label>Manual Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Card-Not-Present Risk Policy v3"
+                  required
+                />
+              </div>
+              <div>
+                <label>File (PDF or TXT)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.txt"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  style={{ padding: "6px 0", cursor: "pointer" }}
+                  required
+                />
+              </div>
+            </fieldset>
 
             <button type="submit" disabled={uploading}>
-              {uploading ? "Indexing Document..." : "Import & Index Manual"}
+              {uploading ? "Indexing…" : "Import & Index Manual"}
             </button>
           </form>
 
           {uploadStatus && (
-            <div style={{
-              marginTop: "15px",
-              padding: "12px",
-              borderRadius: "8px",
-              fontSize: "0.8rem",
-              backgroundColor: uploadStatus.success ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
-              border: `1px solid ${uploadStatus.success ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
-              color: uploadStatus.success ? "var(--success)" : "var(--danger)"
-            }}>
+            <div
+              style={{
+                marginTop: "12px",
+                padding: "10px 12px",
+                borderRadius: "3px",
+                fontSize: "0.75rem",
+                lineHeight: "1.4",
+                backgroundColor: uploadStatus.success ? "var(--risk-safe-bg)" : "var(--risk-high-bg)",
+                border: `1px solid ${uploadStatus.success ? "var(--risk-safe-border)" : "var(--risk-high-border)"}`,
+                color: uploadStatus.success ? "var(--risk-safe)" : "var(--risk-high)",
+              }}
+            >
               {uploadStatus.message}
             </div>
           )}
         </div>
 
-        {/* Right Column: Search/Query RAG store */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
-          
-          <div className="glass-card">
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "15px" }}>
-              <BookOpen size={22} color="var(--accent)" />
-              <h2>Compliance Search Engine</h2>
-            </div>
-            
-            <form onSubmit={handleSearchSubmit} style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-              <div style={{ flexGrow: 1, position: "relative" }}>
-                <Search size={18} color="var(--text-muted)" style={{ position: "absolute", left: "12px", top: "12px" }} />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Ask policy rules: CNP transaction limit, PSD2 verification directives..."
-                  style={{ paddingLeft: "38px" }}
-                  required
-                />
-              </div>
-              <button type="submit" disabled={searching}>
-                {searching ? "Querying..." : "Search"}
+        {/* Right: Search + Results */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+
+          {/* Search bar */}
+          <div className="panel">
+            <h2>Compliance Search Engine</h2>
+            <form
+              onSubmit={handleSearchSubmit}
+              style={{ display: "flex", gap: "8px", marginTop: "8px" }}
+            >
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder='e.g. "CNP transaction limit" or "SCA exemption criteria"'
+                required
+                style={{ flex: 1 }}
+              />
+              <button type="submit" disabled={searching} style={{ whiteSpace: "nowrap", minWidth: "80px" }}>
+                {searching ? "Querying…" : "Search"}
               </button>
             </form>
-
-            {/* Results Grid */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-              {searchResults.length === 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px", color: "var(--text-muted)" }}>
-                  <AlertCircle size={32} style={{ marginBottom: "10px" }} />
-                  <p style={{ fontSize: "0.85rem" }}>Query the Compliance Policy Database.</p>
-                  <p style={{ fontSize: "0.75rem", marginTop: "4px" }}>Results are blended using Reciprocal Rank Fusion.</p>
-                </div>
-              ) : (
-                searchResults.map((result, idx) => (
-                  <div
-                    key={idx}
-                    className="glass-card"
-                    style={{
-                      backgroundColor: "rgba(9, 9, 11, 0.4)",
-                      padding: "16px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem" }}>
-                      <span style={{ color: "var(--accent)", fontWeight: "600" }}>{result.document_title}</span>
-                      <span style={{ color: "var(--success)", fontWeight: "700" }}>RRF Score: {result.score.toFixed(0)}%</span>
-                    </div>
-                    <p style={{ fontSize: "0.85rem", color: "#f4f4f5", lineHeight: "1.4" }}>{result.content}</p>
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontStyle: "italic", alignSelf: "flex-end" }}>
-                      File: {result.filename} (Chunk: {result.chunk_index})
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
           </div>
 
+          {/* Results */}
+          {searchResults.length === 0 && !searching ? (
+            <div
+              className="panel"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                padding: "40px 20px",
+                color: "var(--fg-dim)",
+                gap: "6px",
+                textAlign: "center",
+              }}
+            >
+              <span style={{ fontSize: "1.6rem" }}>§</span>
+              <p style={{ fontSize: "0.8rem", color: "var(--fg-muted)" }}>
+                Enter a compliance question to search indexed policy manuals.
+              </p>
+              <p style={{ fontSize: "0.7rem", color: "var(--fg-dim)" }}>
+                Try: "CNP transaction limit" · "SCA exemption criteria" · "RBI card-present rules"
+              </p>
+            </div>
+          ) : searching ? (
+            <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton" style={{ height: "56px" }} />
+              ))}
+            </div>
+          ) : (
+            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+              <div className="data-table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "26%" }}>Document</th>
+                      <th style={{ width: "8%" }}>Chunk</th>
+                      <th style={{ width: "12%", textAlign: "right" }}>RRF Score</th>
+                      <th>Excerpt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchResults.map((result, idx) => (
+                      <React.Fragment key={idx}>
+                        <tr
+                          onClick={() => setExpandedRow(expandedRow === idx ? null : idx)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--accent-text)" }}>
+                            {result.document_title}
+                          </td>
+                          <td>
+                            <span className="tabular" style={{ fontSize: "0.72rem", color: "var(--fg-muted)" }}>
+                              #{result.chunk_index}
+                            </span>
+                          </td>
+                          <td className="num">
+                            <span
+                              className="tabular"
+                              style={{
+                                fontSize: "0.78rem",
+                                fontWeight: "700",
+                                color: result.score > 70 ? "var(--risk-safe)" : result.score > 40 ? "var(--risk-warn)" : "var(--fg-muted)",
+                              }}
+                            >
+                              {result.score.toFixed(0)}%
+                            </span>
+                          </td>
+                          <td
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "var(--fg-muted)",
+                              maxWidth: "360px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: expandedRow === idx ? "normal" : "nowrap",
+                            }}
+                          >
+                            {result.content}
+                          </td>
+                        </tr>
+                        {expandedRow === idx && (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              style={{
+                                padding: "10px 14px",
+                                backgroundColor: "var(--bg-inset)",
+                                fontSize: "0.78rem",
+                                color: "var(--fg)",
+                                lineHeight: "1.55",
+                                borderBottom: "1px solid var(--border)",
+                              }}
+                            >
+                              <p style={{ marginBottom: "6px", fontStyle: "italic" }}>{result.content}</p>
+                              <p style={{ fontSize: "0.65rem", color: "var(--fg-dim)" }}>
+                                Source: {result.filename} · Chunk {result.chunk_index}
+                              </p>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
-
       </div>
     </div>
   );

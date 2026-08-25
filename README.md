@@ -32,7 +32,46 @@ RazorGuard AI is built to demonstrate concrete solutions for transaction risk ev
 
 ---
 
-## 4. Architecture
+## Why This Complements Razorpay's Existing Stack
+
+Razorpay's **Thirdwatch** product addresses merchant/ecommerce order-level fraud — return-to-origin (RTO) risk, cash-on-delivery fraud, and order-level risk scoring at checkout. That is a different problem layer from what RazorGuard AI targets.
+
+RazorGuard AI addresses **post-escalation, payment-gateway-level investigation**: the tool a risk operations analyst opens *after* a transaction has already been auto-escalated by a scoring system, to decide whether to approve or block with an auditable, explainable trail.
+
+### Where RazorGuard fits
+
+| Risk Layer | Tool | Who uses it | When |
+|---|---|---|---|
+| Order-level fraud (RTO, COD) | Thirdwatch | Merchant fraud teams | At checkout / order placement |
+| Transaction-level auto-scoring | Gateway rules engine | Automated pipeline | At payment authorization |
+| **Post-escalation investigation** | **RazorGuard AI** | **Risk operations analysts** | **After a transaction is flagged/held** |
+
+### Feature-to-need mapping
+
+| RazorGuard Feature | Risk-Ops Need |
+|---|---|
+| Multi-agent explanation briefing | Analyst understands *why* a transaction was flagged — not just a numeric score |
+| Human override with justification notes | Auditable decision trail for RBI/PCI-DSS compliance review |
+| Knowledge graph — device/IP sharing | Detect card-testing rings reusing hardware across synthetic identities |
+| Compliance RAG (hybrid retrieval) | Ground override decisions in real policy citations, not analyst memory |
+| Deterministic scoring | Reproducible risk computation — two analysts reviewing the same transaction see the same score |
+
+### Measurable investigation goals
+
+This tool is designed to reduce analyst **time-per-case**. Benchmark targets (to be filled after measuring the demo):
+
+- Average investigation time without RazorGuard: **`[N]` minutes** per escalated case
+- Target investigation time with RazorGuard: **`[M]` minutes** per escalated case
+
+### Honest architectural intent
+
+RazorGuard AI is designed to consume transaction events from a gateway's existing event stream (e.g., a Kafka topic or webhook pipeline). It does **not** claim actual integration with Razorpay's production infrastructure — this is a prototype built to demonstrate how such a layer would behave, using synthetic data.
+
+See [`docs/why-razorpay.md`](docs/why-razorpay.md) for the full positioning brief.
+
+---
+
+
 
 ```
 Ingested Payment Event
