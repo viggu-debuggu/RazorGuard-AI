@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { API_URL } from "../lib/api";
+
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 
@@ -133,7 +135,7 @@ export default function NetworkVisualizer({ userId, token, compact = false }) {
 
   useEffect(() => {
     if (!userId || !token) return;
-    fetch(`http://localhost:8000/api/v1/graph/neighbors?node_id=${userId}&node_type=User`, {
+    fetch(`${API_URL}/api/v1/graph/neighbors?node_id=${userId}&node_type=User`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())

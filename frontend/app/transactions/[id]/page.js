@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import NetworkVisualizer from "../../../components/NetworkVisualizer";
 import { CornerDownRight } from "lucide-react";
+import { API_URL } from "../../../lib/api";
+
 
 function relativeTime(isoString) {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -85,7 +87,7 @@ export default function TransactionDetail() {
 
   const fetchDetails = () => {
     if (!token || !id) return;
-    fetch(`http://localhost:8000/api/v1/transactions/${id}/investigation`, {
+    fetch(`${API_URL}/api/v1/transactions/${id}/investigation`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -112,7 +114,7 @@ export default function TransactionDetail() {
     }
     setSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/transactions/${id}/resolve`, {
+      const response = await fetch(`${API_URL}/api/v1/transactions/${id}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action, notes: overrideNotes }),

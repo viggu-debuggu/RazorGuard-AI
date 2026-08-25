@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import dynamic from "next/dynamic";
+import { API_URL } from "../../lib/api";
+
 
 // react-force-graph-2d uses browser APIs — must be dynamically imported (no SSR)
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
@@ -164,7 +166,7 @@ export default function GraphPlayground() {
   // Fetch graph data
   useEffect(() => {
     if (!token) return;
-    fetch("http://localhost:8000/api/v1/graph/visualize", {
+    fetch(`${API_URL}/api/v1/graph/visualize`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())

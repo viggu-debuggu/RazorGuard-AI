@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { API_URL } from "../../lib/api";
+
 
 export default function PoliciesCenter() {
   const { token } = useAuth();
@@ -28,7 +30,7 @@ export default function PoliciesCenter() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/policies/upload", {
+      const response = await fetch(`${API_URL}/api/v1/policies/upload`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -60,7 +62,7 @@ export default function PoliciesCenter() {
     setSearchResults([]);
     try {
       const response = await fetch(
-        `http://localhost:8000/api/v1/policies/search?query=${encodeURIComponent(searchQuery)}`,
+        `${API_URL}/api/v1/policies/search?query=${encodeURIComponent(searchQuery)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.ok) {

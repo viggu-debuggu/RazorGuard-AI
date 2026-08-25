@@ -31,7 +31,7 @@ services:
       - ENVIRONMENT=production
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/razorguard_db
       - LLM_PROVIDER=mock
-      - SECRET_KEY=default-secret-production-override
+      - SECRET_KEY=${SECRET_KEY}
     ports:
       - "8000:8000"
     depends_on:

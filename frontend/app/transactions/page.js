@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
+import { API_URL } from "../../lib/api";
+
 
 function relativeTime(isoString) {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -42,7 +44,7 @@ export default function TransactionsQueue() {
 
   const fetchTransactions = () => {
     if (!token) return;
-    let url = "http://localhost:8000/api/v1/transactions?";
+    let url = `${API_URL}/api/v1/transactions?`;
     if (statusFilter) url += `status=${statusFilter}&`;
     if (minScore > 0) url += `min_score=${minScore}&`;
 
