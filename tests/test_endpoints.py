@@ -80,3 +80,63 @@ def test_transaction_ingest_risk_assessment_flow(client):
     
     assert resolve_res.status_code == status.HTTP_200_OK
     assert resolve_res.json()["status"] == "Blocked"
+
+
+def test_analyst_efficiency_metrics(client):
+    """Tests registration, transaction ingestion, resolution, and verification of efficiency metrics."""
+    # 1. Register & Login
+    client.post("/api/v1/auth/register", json={
+        "email": "metrics_analyst@test.com",
+        "password": "securepassword",
+        "full_name": "Metrics Analyst"
+    })
+    log_res = client.post("/api/v1/auth/login", json={
+        "email": "metrics_analyst@test.com",
+        "password": "securepassword"
+    })
+    token = log_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Ingest transaction
+    ingest_res = client.post("/api/v1/transactions/", json={
+        "transaction_id": "tx_efficiency_test_99",
+        "user_id": "usr_metrics_99",
+        "amount": 250000.0,
+        "currency": "INR",
+        "device_fingerprint": "df_efficiency_99",
+        "ip_address": "49.207.12.99",
+        "billing_country": "IN",
+        "card_country": "US",
+        "card_present": False,
+        "merchant_id": "mer_metrics_99",
+        "merchant_category": "gaming"
+    }, headers=headers)
+    assert ingest_res.status_code == status.HTTP_202_ACCEPTED
+    tx_data = ingest_res.json()
+    id_val = tx_data["id"]
+
+    # 3. Submit analyst override decision
+    resolve_res = client.post(f"/api/v1/transactions/{id_val}/resolve", json={
+        "action": "Block",
+        "notes": "Verify suspect behavior under evaluation guidelines."
+    }, headers=headers)
+    assert resolve_res.status_code == status.HTTP_200_OK
+
+    # 4. Get efficiency metrics
+    metrics_res = client.get("/api/v1/transactions/metrics/efficiency", headers=headers)
+    assert metrics_res.status_code == status.HTTP_200_OK
+    metrics_data = metrics_res.json()
+    
+    # Assert fields are present
+    assert "avg_investigation_time_seconds" in metrics_data
+    assert "avg_analyst_review_minutes" in metrics_data
+    assert "total_cases_processed" in metrics_data
+    assert "total_overrides_submitted" in metrics_data
+    assert "pct_decisions_with_justification" in metrics_data
+    assert "cases_by_classification" in metrics_data
+
+    # Assert values
+    assert metrics_data["total_cases_processed"] >= 1
+    assert metrics_data["total_overrides_submitted"] >= 1
+    assert metrics_data["pct_decisions_with_justification"] == 100.0
+

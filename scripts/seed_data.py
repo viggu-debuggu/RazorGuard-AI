@@ -11,6 +11,9 @@ from app.models.user import User
 from app.models.transaction import Transaction
 from app.models.graph import GraphEdge
 from app.models.policy import PolicyDocument, PolicyChunk
+from app.models.decision import AnalystDecision
+from app.models.risk_assessment import RiskAssessment
+from app.models.agent import AgentExecution
 from app.api.dependencies.auth import get_password_hash
 from app.ai.embeddings import generate_embedding
 from app.ai.vector_store import save_policy_chunk
@@ -334,6 +337,7 @@ def seed_database():
         print("Starting Database Seeder...")
         
         # 1. Ensure tables are created
+        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
         
         # Clear existing tables to ensure clean seed
@@ -415,6 +419,61 @@ def seed_database():
         AgentOrchestrator.run_investigation(db, "TXN-92817")
         db.commit()
         
+        # 7. Seed analyst decision overrides for Scenarios B and C to provide realistic metrics out of the box
+        print("Seeding analyst overrides for Scenario B & Scenario C...")
+        analyst_user = db.query(User).filter(User.email == "analyst@razorguard.ai").first()
+        if analyst_user:
+            # Scenario B: TXN-40293
+            tx_b = db.query(Transaction).filter(Transaction.transaction_id == "TXN-40293").first()
+            if tx_b:
+                assessment_b = db.query(RiskAssessment).filter(RiskAssessment.transaction_id == tx_b.id).first()
+                if assessment_b:
+                    dec_b = db.query(AnalystDecision).filter(AnalystDecision.transaction_id == tx_b.id).first()
+                    if not dec_b:
+                        submitted_time_b = assessment_b.analyzed_at + timedelta(minutes=3, seconds=45)
+                        dec_b = AnalystDecision(
+                            transaction_id=tx_b.id,
+                            analyst_id=analyst_user.id,
+                            action="Approve",
+                            notes="Verified billing country IN matches card issuing country US due to customer remote work status verified via OTP.",
+                            original_ai_recommendation=tx_b.status,
+                            submitted_at=submitted_time_b
+                        )
+                        db.add(dec_b)
+                        tx_b.status = "Approved"
+                        db.add(tx_b)
+                        print("Seeded AnalystDecision override for TXN-40293.")
+            
+            # Scenario C: TXN-92817
+            tx_c = db.query(Transaction).filter(Transaction.transaction_id == "TXN-92817").first()
+            if tx_c:
+                assessment_c = db.query(RiskAssessment).filter(RiskAssessment.transaction_id == tx_c.id).first()
+                if assessment_c:
+                    dec_c = db.query(AnalystDecision).filter(AnalystDecision.transaction_id == tx_c.id).first()
+                    if not dec_c:
+                        submitted_time_c = assessment_c.analyzed_at + timedelta(minutes=5, seconds=12)
+                        dec_c = AnalystDecision(
+                            transaction_id=tx_c.id,
+                            analyst_id=analyst_user.id,
+                            action="Block",
+                            notes="Confirmed hardware device fingerprint df_demo_unseen_99 overlaps with 3 blocked suspect accounts.",
+                            original_ai_recommendation=tx_c.status,
+                            submitted_at=submitted_time_c
+                        )
+                        db.add(dec_c)
+                        tx_c.status = "Blocked"
+                        db.add(tx_c)
+                        print("Seeded AnalystDecision override for TXN-92817.")
+            
+            # Ensure AgentExecution duration is non-zero
+            executions = db.query(AgentExecution).all()
+            for exe in executions:
+                if exe.duration == 0.0 or not exe.duration:
+                    exe.duration = 0.85
+                    db.add(exe)
+
+            db.commit()
+
         print("SUCCESS: Database seeding finished.")
         
     except Exception as e:

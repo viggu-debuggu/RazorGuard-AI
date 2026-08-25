@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { API_URL } from "../../lib/api";
 
 const MOCK_CHART_DATA = [
   { time: "08:00", volume: 140, risk: 2 },
@@ -46,12 +47,14 @@ export default function DashboardHome() {
   const [escalations, setEscalations] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [efficiency, setEfficiency] = useState(null);
+  const [loadingEfficiency, setLoadingEfficiency] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     if (!token) return;
 
-    fetch("http://localhost:8000/api/v1/transactions?status=Escalated", {
+    fetch(`${API_URL}/api/v1/transactions?status=Escalated`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -70,6 +73,18 @@ export default function DashboardHome() {
       .catch(() => {
         setMetrics({ total: 1280, approved: 1154, flagged: 0, blocked: 42 });
         setLoadingMetrics(false);
+      });
+
+    fetch(`${API_URL}/api/v1/transactions/metrics/efficiency`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setEfficiency(data);
+        setLoadingEfficiency(false);
+      })
+      .catch(() => {
+        setLoadingEfficiency(false);
       });
   }, [token]);
 
@@ -124,6 +139,67 @@ export default function DashboardHome() {
                 style={{ fontSize: "1.8rem", fontWeight: 400, color, lineHeight: 1 }}
               >
                 {value.toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Analyst Efficiency Metrics Row */}
+      <h2 style={{ fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--fg-muted)", marginBottom: "10px", marginTop: "16px" }}>
+        Analyst Efficiency
+      </h2>
+      {loadingEfficiency || !efficiency ? (
+        <MetricsSkeleton />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "10px",
+            marginBottom: "20px",
+          }}
+        >
+          {[
+            {
+              label: "Avg. analyst time per case",
+              value: `${efficiency.avg_analyst_review_minutes.toFixed(1)} min`,
+              color: "var(--accent-text)",
+            },
+            {
+              label: "Cases processed",
+              value: efficiency.total_cases_processed.toLocaleString(),
+              color: "var(--fg)",
+            },
+            {
+              label: "Audit-ready decisions",
+              value: `${efficiency.pct_decisions_with_justification.toFixed(0)}%`,
+              color: "var(--risk-safe)",
+            },
+            {
+              label: "AI investigation speed",
+              value: `${efficiency.avg_investigation_time_seconds.toFixed(1)}s`,
+              color: "var(--fg)",
+            },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="panel" style={{ padding: "12px 14px" }}>
+              <p
+                style={{
+                  fontSize: "0.68rem",
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.07em",
+                  color: "var(--fg-muted)",
+                  marginBottom: "6px",
+                }}
+              >
+                {label}
+              </p>
+              <p
+                className="display-num"
+                style={{ fontSize: "1.8rem", fontWeight: 400, color, lineHeight: 1 }}
+              >
+                {value}
               </p>
             </div>
           ))}

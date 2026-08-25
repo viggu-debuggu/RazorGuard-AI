@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database.session import get_db
@@ -12,7 +13,8 @@ from app.schemas.transaction import (
     TransactionCreate,
     TransactionOut,
     InvestigationOut,
-    AnalystDecisionSubmit
+    AnalystDecisionSubmit,
+    AnalystEfficiencyOut
 )
 from app.services.agent_orchestrator import AgentOrchestrator
 from app.core.logging import logger
@@ -90,6 +92,74 @@ def list_transactions_queue(
         
     transactions = query.order_by(Transaction.timestamp.desc()).offset(offset).limit(limit).all()
     return transactions
+
+
+@router.get("/metrics/efficiency", response_model=AnalystEfficiencyOut)
+def get_analyst_efficiency_metrics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Computes analyst efficiency metrics including mean agent execution duration,
+    mean analyst review time, case volumes, and justification percentages.
+    """
+    # 1. Avg investigation time
+    avg_inv_val = db.query(func.avg(AgentExecution.duration)).scalar()
+    avg_investigation_time_seconds = float(avg_inv_val) if avg_inv_val is not None else 0.0
+
+    # 2. Avg analyst review time
+    decisions_with_assessments = db.query(
+        AnalystDecision.submitted_at, 
+        RiskAssessment.analyzed_at
+    ).join(
+        RiskAssessment, 
+        RiskAssessment.transaction_id == AnalystDecision.transaction_id
+    ).all()
+    
+    if decisions_with_assessments:
+        diffs = [
+            (sub - ana).total_seconds() / 60.0 
+            for sub, ana in decisions_with_assessments
+        ]
+        avg_analyst_review_minutes = sum(diffs) / len(diffs)
+    else:
+        avg_analyst_review_minutes = 0.0
+
+    # 3. Total cases processed (distinct transactions with a RiskAssessment)
+    total_cases_processed = db.query(RiskAssessment.transaction_id).distinct().count()
+
+    # 4. Total overrides submitted
+    total_overrides_submitted = db.query(AnalystDecision).count()
+
+    # 5. Justification percentage
+    if total_overrides_submitted > 0:
+        justified = db.query(AnalystDecision).filter(
+            AnalystDecision.notes.isnot(None),
+            AnalystDecision.notes != ""
+        ).count()
+        pct_decisions_with_justification = (justified / total_overrides_submitted) * 100.0
+    else:
+        pct_decisions_with_justification = 0.0
+
+    # 6. Cases by classification
+    classification_counts = {"Safe": 0, "Suspicious": 0, "High Risk": 0}
+    class_results = db.query(
+        RiskAssessment.classification, 
+        func.count(RiskAssessment.id)
+    ).group_by(RiskAssessment.classification).all()
+    
+    for class_name, count in class_results:
+        if class_name:
+            classification_counts[class_name] = count
+
+    return {
+        "avg_investigation_time_seconds": avg_investigation_time_seconds,
+        "avg_analyst_review_minutes": avg_analyst_review_minutes,
+        "total_cases_processed": total_cases_processed,
+        "total_overrides_submitted": total_overrides_submitted,
+        "pct_decisions_with_justification": pct_decisions_with_justification,
+        "cases_by_classification": classification_counts
+    }
 
 
 @router.get("/{id}", response_model=TransactionOut)

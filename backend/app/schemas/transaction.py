@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
+
 
 class TransactionCreate(BaseModel):
     transaction_id: str
@@ -76,3 +77,14 @@ class InvestigationOut(BaseModel):
     reasoning_steps: List[str]
     memories: List[AgentMemoryOut]
     decisions: List[AnalystDecisionOut] = []
+
+class AnalystEfficiencyOut(BaseModel):
+    avg_investigation_time_seconds: float
+    avg_analyst_review_minutes: float
+    total_cases_processed: int
+    total_overrides_submitted: int
+    pct_decisions_with_justification: float
+    cases_by_classification: Dict[str, int]
+
+    model_config = ConfigDict(from_attributes=True)
+
