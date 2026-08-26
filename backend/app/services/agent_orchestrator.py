@@ -230,6 +230,9 @@ class AgentOrchestrator:
             "supporting_entity": "Centroid Model"
         })
 
+        # Clear previous evidences for this transaction before adding new ones
+        db.query(Evidence).filter(Evidence.transaction_id == tx.id).delete(synchronize_session=False)
+
         for idx, ev_data in enumerate(all_structured_evidences):
             ev_id = f"EV-{tx.transaction_id}-{idx+1}"
             evidence_record = Evidence(
@@ -286,6 +289,9 @@ class AgentOrchestrator:
         explanation_markdown = LLMService.generate_response(llm_prompt, system_prompt)
         
         # 11. Persist Risk Assessment
+        db.query(RiskAssessment).filter(RiskAssessment.transaction_id == tx.id).delete(synchronize_session=False)
+        db.query(AgentExecution).filter(AgentExecution.transaction_id == tx.id).delete(synchronize_session=False)
+        
         assessment = RiskAssessment(
             transaction_id=tx.id,
             overall_score=overall_score,

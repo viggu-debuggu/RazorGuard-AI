@@ -3,7 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging, logger
-from app.database.session import verify_db_connection
+from app.database.session import verify_db_connection, engine
+from app.models import Base
 from app.api.endpoints import auth, transactions, graph, policies
 
 # 1. Initialize structured logging configuration
@@ -14,6 +15,9 @@ setup_logging()
 async def lifespan(app: FastAPI):
     """Validates core services at boot time."""
     logger.info("system_booting_checks")
+    
+    # Ensure all tables exist (Alembic fallback)
+    Base.metadata.create_all(bind=engine)
     
     # Check Database connection
     if verify_db_connection():

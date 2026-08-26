@@ -8,6 +8,7 @@ from app.models.policy import PolicyDocument, PolicyChunk
 from app.models.decision import AnalystDecision
 from app.models.evidence import Evidence
 from app.models.audit_log import AuditLog
+from app.models.merchant_submission import MerchantSubmission
 
 __all__ = [
     "Base",
@@ -23,4 +24,5 @@ __all__ = [
     "AnalystDecision",
     "Evidence",
     "AuditLog",
+    "MerchantSubmission",
 ]

@@ -13,13 +13,15 @@ from app.models.decision import AnalystDecision
 from app.models.evidence import Evidence
 from app.models.audit_log import AuditLog
 from app.models.graph import GraphEdge
+from app.models.merchant_submission import MerchantSubmission
 from app.schemas.transaction import (
     TransactionCreate,
     TransactionOut,
     InvestigationOut,
     AnalystDecisionSubmit,
     AnalystEfficiencyOut,
-    DashboardMetricsOut
+    DashboardMetricsOut,
+    MerchantSubmissionCreate
 )
 from app.services.agent_orchestrator import AgentOrchestrator
 from app.core.logging import logger
@@ -318,7 +320,8 @@ def get_transaction_investigation(
         "memories": memories,
         "evidences": evidences,
         "audit_logs": audit_logs,
-        "decisions": decisions_out
+        "decisions": decisions_out,
+        "submissions": tx.submissions
     }
 
 
@@ -407,3 +410,77 @@ def submit_analyst_decision(
 
     logger.info("analyst_override_submitted", transaction_id=tx.transaction_id, action=payload.action, analyst=current_user.email)
     return tx
+
+
+@router.post("/{id}/merchant-submit", response_model=TransactionOut)
+def submit_merchant_evidence(
+    id: int,
+    payload: MerchantSubmissionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Submits explanation notes and mocked document verification links for the transaction hold resolution."""
+    tx = db.query(Transaction).filter(Transaction.id == id).first()
+    if not tx:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found."
+        )
+
+    # Save merchant submission
+    sub = MerchantSubmission(
+        transaction_id=tx.id,
+        notes=payload.notes,
+        document_url=payload.document_url,
+        status="Submitted",
+        submitted_at=datetime.utcnow()
+    )
+    db.add(sub)
+    db.flush()
+
+    # Log to Audit trail
+    log = AuditLog(
+        transaction_id=tx.id,
+        event="merchant_evidence_submitted",
+        description=(
+            f"Merchant submitted hold verification materials. notes: \"{payload.notes}\""
+            + (f", document: '{payload.document_url}'" if payload.document_url else "")
+            + "."
+        ),
+        actor=f"Merchant Account: {tx.user_id}",
+        timestamp=datetime.utcnow(),
+        metadata_json={
+            "notes": payload.notes,
+            "document": payload.document_url
+        }
+    )
+    db.add(log)
+    db.commit()
+
+    # Trigger Multi-Agent Re-evaluation
+    try:
+        AgentOrchestrator.run_investigation(db, tx.transaction_id)
+        db.refresh(tx)
+        
+        # Log resolution status transition if status became Approved
+        if tx.status == "Approved":
+            log_resolve = AuditLog(
+                transaction_id=tx.id,
+                event="auto_resolved",
+                description=f"Transaction automatically resolved and approved after verifying merchant materials. Risk score updated to {tx.risk_score:.0f}%.",
+                actor="System Orchestrator",
+                timestamp=datetime.utcnow(),
+                metadata_json={
+                    "new_score": tx.risk_score,
+                    "new_status": tx.status
+                }
+            )
+            db.add(log_resolve)
+            db.commit()
+            db.refresh(tx)
+    except Exception as e:
+        logger.error("reevaluation_failed", transaction_id=tx.transaction_id, error=str(e))
+        db.rollback()
+
+    return tx
+

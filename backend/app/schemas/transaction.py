@@ -96,6 +96,20 @@ class AuditLogOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class MerchantSubmissionOut(BaseModel):
+    id: int
+    transaction_id: int
+    notes: str
+    document_url: Optional[str]
+    submitted_at: datetime
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class MerchantSubmissionCreate(BaseModel):
+    notes: str
+    document_url: Optional[str] = None
+
 class InvestigationOut(BaseModel):
     transaction: TransactionOut
     assessment: Optional[RiskAssessmentOut]
@@ -105,6 +119,7 @@ class InvestigationOut(BaseModel):
     evidences: List[EvidenceOut] = []
     audit_logs: List[AuditLogOut] = []
     decisions: List[AnalystDecisionOut] = []
+    submissions: List[MerchantSubmissionOut] = []
 
 class AnalystEfficiencyOut(BaseModel):
     avg_investigation_time_seconds: float

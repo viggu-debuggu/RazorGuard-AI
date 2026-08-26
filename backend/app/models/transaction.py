@@ -38,3 +38,4 @@ class Transaction(Base):
     decisions = relationship("AnalystDecision", back_populates="transaction", cascade="all, delete-orphan")
     evidences = relationship("Evidence", back_populates="transaction", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="transaction", cascade="all, delete-orphan")
+    submissions = relationship("MerchantSubmission", back_populates="transaction", cascade="all, delete-orphan")

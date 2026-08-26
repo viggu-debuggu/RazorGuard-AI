@@ -61,16 +61,30 @@ class TransactionRiskAgent:
         # Calculate rule score: 33.3 per violation, capped at 100.0
         rule_score = min(100.0, len(violations) * 33.3)
         
-        outcome = (
-            f"Transaction profiled. Violations found: {len(violations)}. "
-            f"Rule status evaluates at {rule_score:.1f}% risk severity."
-        )
+
+        # Check if merchant submitted resolving evidence
+        submission = None
+        if db is not None:
+            from app.models.merchant_submission import MerchantSubmission
+            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+        
+        if submission:
+            rule_score = 0.0
+            outcome = "Transaction profile reviewed. Violations resolved via merchant submitted documentation."
+            evidence = f"Heuristic rule violations resolved. Merchant submitted verification notes: \"{submission.notes}\"."
+            structured_evidences = []
+        else:
+            outcome = (
+                f"Transaction profiled. Violations found: {len(violations)}. "
+                f"Rule status evaluates at {rule_score:.1f}% risk severity."
+            )
+            evidence = " | ".join(evidence_logs) if evidence_logs else "No heuristic rule violations detected."
         
         return {
             "agent_name": "Transaction Risk Agent",
             "score": float(rule_score),
             "outcome": outcome,
-            "evidence": " | ".join(evidence_logs) if evidence_logs else "No heuristic rule violations detected.",
+            "evidence": evidence,
             "evidences": structured_evidences
         }
 
@@ -143,13 +157,27 @@ class BehavioralRiskAgent:
                 })
 
         behavioral_score = min(100.0, len(violations) * 50.0)
-        outcome = f"Behavioral velocity analyzed. Detected anomalies: {len(violations)}."
         
+        # Check if merchant submitted resolving evidence
+        submission = None
+        if db is not None:
+            from app.models.merchant_submission import MerchantSubmission
+            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+        
+        if submission:
+            behavioral_score = 0.0
+            outcome = "Behavioral velocity reviewed. Anomalies resolved via merchant verification."
+            evidence = f"Velocity rules resolved. Merchant submitted verification notes: \"{submission.notes}\"."
+            structured_evidences = []
+        else:
+            outcome = f"Behavioral velocity analyzed. Detected anomalies: {len(violations)}."
+            evidence = " | ".join(evidence_logs) if evidence_logs else "Customer spending velocity within normal historical bounds."
+            
         return {
             "agent_name": "Behavioral Risk Agent",
             "score": float(behavioral_score),
             "outcome": outcome,
-            "evidence": " | ".join(evidence_logs) if evidence_logs else "Customer spending velocity within normal historical bounds.",
+            "evidence": evidence,
             "evidences": structured_evidences
         }
 
@@ -190,6 +218,18 @@ class FraudInvestigationAgent:
         else:
             outcome = "Graph walking completed. Node is isolated from other registered entities."
             evidence = "No shared device fingerprints or IP addresses linked to external customer accounts."
+            
+        # Check if merchant submitted resolving evidence
+        submission = None
+        if db is not None:
+            from app.models.merchant_submission import MerchantSubmission
+            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+        
+        if submission:
+            graph_score = 0.0
+            outcome = "Graph walk overlaps analyzed and resolved via merchant device authorization verification."
+            evidence = f"Graph overlap rules resolved. Merchant submitted verification notes: \"{submission.notes}\"."
+            structured_evidences = []
             
         return {
             "agent_name": "Fraud Investigation Agent",
@@ -244,6 +284,19 @@ class PolicyRAGAgent:
             outcome = "No applicable compliance guidelines resolved in RAG registry."
             evidence = "No active regulatory rules breached. Compliance policy search returned zero matches."
             
+        # Check if merchant submitted resolving evidence
+        submission = None
+        if db is not None:
+            from app.models.merchant_submission import MerchantSubmission
+            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+        
+        if submission:
+            policy_score = 0.0
+            outcome = "Compliance policies verified. All required documentation verified."
+            evidence = f"Policy compliance verified. Merchant submitted verification notes: \"{submission.notes}\"."
+            for se in structured_evidences:
+                se["severity"] = "low"
+                
         return {
             "agent_name": "Policy Agent",
             "score": float(policy_score),
@@ -325,7 +378,15 @@ class ActionAgent:
             
         # Update transaction status and score in DB
         tx.status = new_status
-        tx.risk_score = score
+        from app.models.merchant_submission import MerchantSubmission
+        submission = db.query(MerchantSubmission).filter(
+            MerchantSubmission.transaction_id == tx.id,
+            MerchantSubmission.status == "Submitted"
+        ).first()
+        if submission:
+            tx.risk_score = 0.0
+        else:
+            tx.risk_score = score
         db.add(tx)
         db.flush()
         
