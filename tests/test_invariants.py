@@ -90,7 +90,25 @@ def test_evidence_and_audit_linkage(client):
         assert ev["source"] is not None
         assert ev["confidence"] >= 0.0
 
-    # Ensure audit log objects capture state transitions
     event_names = [log["event"] for log in trace_data["audit_logs"]]
     assert "transaction_received" in event_names
     assert "analysis_started" in event_names
+
+
+def test_decision_agent_determinism():
+    """Explicitly asserts that given fixed inputs, the Decision Agent processes them identically and deterministically every time."""
+    inputs = {
+        "ml_score": 75.0,
+        "rule_score": 50.0,
+        "graph_score": 25.0,
+        "policy_score": 100.0
+    }
+    expected = (0.35 * 75.0) + (0.20 * 50.0) + (0.30 * 25.0) + (0.15 * 100.0)
+    
+    first = DecisionAgent.process_task(None, **inputs)
+    assert first["score"] == expected
+    assert first["classification"] == "Suspicious"
+    
+    for _ in range(50):
+        res = DecisionAgent.process_task(None, **inputs)
+        assert res == first
