@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -28,10 +28,53 @@ from app.core.logging import logger
 
 router = APIRouter()
 
+from app.database.session import SessionLocal
+
+def run_ingest_investigation(transaction_id: str):
+    db = SessionLocal()
+    try:
+        AgentOrchestrator.run_investigation(db, transaction_id)
+    except Exception as e:
+        logger.error("orchestrator_execution_failed_during_ingest_bg", transaction_id=transaction_id, error=str(e))
+        tx = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if tx:
+            tx.status = "Escalated"
+            db.add(tx)
+            db.commit()
+    finally:
+        db.close()
+
+
+def run_merchant_revaluation(transaction_id: str, tx_id: int):
+    db = SessionLocal()
+    try:
+        AgentOrchestrator.run_investigation(db, transaction_id)
+        tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
+        if tx and tx.status == "Approved":
+            log_resolve = AuditLog(
+                transaction_id=tx.id,
+                event="auto_resolved",
+                description=f"Transaction automatically resolved and approved after verifying merchant materials. Risk score updated to {tx.risk_score:.0f}%.",
+                actor="System Orchestrator",
+                timestamp=datetime.utcnow(),
+                metadata_json={
+                    "new_score": tx.risk_score,
+                    "new_status": tx.status
+                }
+            )
+            db.add(log_resolve)
+            db.commit()
+    except Exception as e:
+        logger.error("reevaluation_failed_bg", transaction_id=transaction_id, error=str(e))
+        db.rollback()
+    finally:
+        db.close()
+
 
 @router.post("/", response_model=TransactionOut, status_code=status.HTTP_202_ACCEPTED)
 def ingest_payment_transaction(
     payload: TransactionCreate, 
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -67,16 +110,8 @@ def ingest_payment_transaction(
     db.commit()
     db.refresh(tx)
 
-    try:
-        # Trigger Multi-Agent Orchestrator
-        AgentOrchestrator.run_investigation(db, tx.transaction_id)
-        db.refresh(tx)
-    except Exception as e:
-        logger.error("orchestrator_execution_failed_during_ingest", transaction_id=tx.transaction_id, error=str(e))
-        # Fallback to general escalated status if agent pipeline fails
-        tx.status = "Escalated"
-        db.add(tx)
-        db.commit()
+    # Queue investigation run as background task
+    background_tasks.add_task(run_ingest_investigation, tx.transaction_id)
 
     return tx
 
@@ -121,14 +156,18 @@ def get_analyst_efficiency_metrics(
     ).join(
         RiskAssessment, 
         RiskAssessment.transaction_id == AnalystDecision.transaction_id
+    ).filter(
+        AnalystDecision.submitted_at.isnot(None),
+        RiskAssessment.analyzed_at.isnot(None)
     ).all()
     
     if decisions_with_assessments:
         diffs = [
             (sub - ana).total_seconds() / 60.0 
             for sub, ana in decisions_with_assessments
+            if sub is not None and ana is not None
         ]
-        avg_analyst_review_minutes = sum(diffs) / len(diffs)
+        avg_analyst_review_minutes = sum(diffs) / len(diffs) if diffs else 0.0
     else:
         avg_analyst_review_minutes = 0.0
 
@@ -361,7 +400,7 @@ def submit_analyst_decision(
     evidence_snapshot = []
     for e in evs:
         evidence_snapshot.append({
-            "evidence_id": e.evidence_id,
+            "id": e.id,
             "category": e.category,
             "severity": e.severity,
             "value": e.value,
@@ -416,6 +455,7 @@ def submit_analyst_decision(
 def submit_merchant_evidence(
     id: int,
     payload: MerchantSubmissionCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -459,30 +499,8 @@ def submit_merchant_evidence(
     db.add(log)
     db.commit()
 
-    # Trigger Multi-Agent Re-evaluation
-    try:
-        AgentOrchestrator.run_investigation(db, tx.transaction_id)
-        db.refresh(tx)
-        
-        # Log resolution status transition if status became Approved
-        if tx.status == "Approved":
-            log_resolve = AuditLog(
-                transaction_id=tx.id,
-                event="auto_resolved",
-                description=f"Transaction automatically resolved and approved after verifying merchant materials. Risk score updated to {tx.risk_score:.0f}%.",
-                actor="System Orchestrator",
-                timestamp=datetime.utcnow(),
-                metadata_json={
-                    "new_score": tx.risk_score,
-                    "new_status": tx.status
-                }
-            )
-            db.add(log_resolve)
-            db.commit()
-            db.refresh(tx)
-    except Exception as e:
-        logger.error("reevaluation_failed", transaction_id=tx.transaction_id, error=str(e))
-        db.rollback()
+    # Queue re-evaluation run as background task
+    background_tasks.add_task(run_merchant_revaluation, tx.transaction_id, tx.id)
 
     return tx
 

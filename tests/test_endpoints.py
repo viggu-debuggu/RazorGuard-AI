@@ -274,7 +274,10 @@ def test_merchant_resolution_flow(client, db_session):
     }, headers=headers)
 
     assert submit_res.status_code == status.HTTP_200_OK
-    sub_tx_data = submit_res.json()
+    
+    # Query investigation endpoint to fetch updated transaction details from background task
+    chk_res = client.get(f"/api/v1/transactions/{id_val}/investigation", headers=headers)
+    sub_tx_data = chk_res.json()["transaction"]
     
     # Assert status transitioned to Approved but risk score is only reduced (still > 0.0)
     assert sub_tx_data["status"] == "Approved"
@@ -300,7 +303,10 @@ def test_merchant_resolution_flow(client, db_session):
     }, headers=headers)
 
     assert submit_final.status_code == status.HTTP_200_OK
-    final_tx_data = submit_final.json()
+    
+    # Query investigation endpoint to fetch updated transaction details from final background task
+    chk_res_final = client.get(f"/api/v1/transactions/{id_val}/investigation", headers=headers)
+    final_tx_data = chk_res_final.json()["transaction"]
 
     # Assert status is Approved and score is now fully resolved (only baseline ML score contributes)
     assert final_tx_data["status"] == "Approved"
@@ -314,6 +320,65 @@ def test_merchant_resolution_flow(client, db_session):
     assert chk_data["submissions"][0]["notes"] == "Verified buyer billing address matches, signed delivery receipt attached."
     assert chk_data["submissions"][0]["document_url"] == "signed_delivery_receipt.pdf"
     assert chk_data["submissions"][0]["status"] == "Submitted"
+
+
+def test_submit_analyst_decision_with_evidence(client, db_session):
+    """Submits an analyst override decision for a transaction with real evidence attached and asserts it does not crash."""
+    from app.models.evidence import Evidence
+    from app.models.transaction import Transaction
+
+    # 1. Register & Login
+    client.post("/api/v1/auth/register", json={
+        "email": "analyst_decision@test.com",
+        "password": "securepassword",
+        "full_name": "Analyst Override Tester"
+    })
+    log_res = client.post("/api/v1/auth/login", json={
+        "email": "analyst_decision@test.com",
+        "password": "securepassword"
+    })
+    token = log_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Ingest transaction
+    ingest_res = client.post("/api/v1/transactions/", json={
+        "transaction_id": "tx_decision_override_99",
+        "user_id": "usr_override_99",
+        "amount": 12000.0,
+        "currency": "INR",
+        "device_fingerprint": "df_override_99",
+        "ip_address": "49.207.12.99",
+        "billing_country": "IN",
+        "card_country": "IN",
+        "card_present": True,
+        "merchant_id": "mer_override_99",
+        "merchant_category": "gaming"
+    }, headers=headers)
+    assert ingest_res.status_code == status.HTTP_202_ACCEPTED
+    tx_data = ingest_res.json()
+    id_val = tx_data["id"]
+
+    # 3. Explicitly seed a real evidence record in the database
+    db_session.add(Evidence(
+        transaction_id=id_val,
+        evidence_id="EV-OVERRIDE-TEST-1",
+        category="rules",
+        severity="medium",
+        value="Test Value",
+        description="Test Evidence Description",
+        source="Test Source",
+        confidence=1.0
+    ))
+    db_session.commit()
+
+    # 4. Post the analyst decision
+    resolve_res = client.post(f"/api/v1/transactions/{id_val}/resolve", json={
+        "action": "Approve",
+        "notes": "Verified manual whitelist override."
+    }, headers=headers)
+    assert resolve_res.status_code == status.HTTP_200_OK
+    data = resolve_res.json()
+    assert data["status"] == "Approved"
 
 
 

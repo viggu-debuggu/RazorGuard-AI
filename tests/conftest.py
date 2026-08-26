@@ -35,16 +35,15 @@ def setup_test_db():
 
 @pytest.fixture
 def db_session():
-    """Provides a fresh database session for a single test case, rolled back at finish."""
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    """Provides a fresh database session for a single test case, cleaned up at finish."""
+    session = TestingSessionLocal()
     
     yield session
     
     session.close()
-    transaction.rollback()
-    connection.close()
+    # Clean up database tables for test isolation
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
 
 @pytest.fixture
