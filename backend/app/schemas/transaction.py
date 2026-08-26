@@ -101,6 +101,7 @@ class MerchantSubmissionOut(BaseModel):
     transaction_id: int
     notes: str
     document_url: Optional[str]
+    target_category: Optional[str] = None
     submitted_at: datetime
     status: str
 
@@ -109,6 +110,7 @@ class MerchantSubmissionOut(BaseModel):
 class MerchantSubmissionCreate(BaseModel):
     notes: str
     document_url: Optional[str] = None
+    target_category: Optional[str] = None
 
 class InvestigationOut(BaseModel):
     transaction: TransactionOut

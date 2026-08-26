@@ -12,6 +12,7 @@ class MerchantSubmission(Base):
     transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False)
     notes = Column(Text, nullable=False)
     document_url = Column(String(255), nullable=True)
+    target_category = Column(String(50), nullable=True)
     submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     status = Column(String(50), default="Submitted", nullable=False)
 

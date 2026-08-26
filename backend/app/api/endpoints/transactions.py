@@ -432,6 +432,7 @@ def submit_merchant_evidence(
         transaction_id=tx.id,
         notes=payload.notes,
         document_url=payload.document_url,
+        target_category=payload.target_category,
         status="Submitted",
         submitted_at=datetime.utcnow()
     )
@@ -443,7 +444,7 @@ def submit_merchant_evidence(
         transaction_id=tx.id,
         event="merchant_evidence_submitted",
         description=(
-            f"Merchant submitted hold verification materials. notes: \"{payload.notes}\""
+            f"Merchant submitted hold verification materials (category: {payload.target_category or 'general'}). notes: \"{payload.notes}\""
             + (f", document: '{payload.document_url}'" if payload.document_url else "")
             + "."
         ),
@@ -451,7 +452,8 @@ def submit_merchant_evidence(
         timestamp=datetime.utcnow(),
         metadata_json={
             "notes": payload.notes,
-            "document": payload.document_url
+            "document": payload.document_url,
+            "target_category": payload.target_category
         }
     )
     db.add(log)

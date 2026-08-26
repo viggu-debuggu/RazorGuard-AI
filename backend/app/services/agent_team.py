@@ -7,6 +7,30 @@ from app.ai.rag_service import hybrid_retrieve_policy_chunks
 from knowledge_graph.network_builder import PaymentNetworkGraph
 from ml.predict import predict_transaction_risk
 
+def submission_addresses_category(submission, category: str) -> bool:
+    if not submission:
+        return False
+    # If the submission explicitly targets this category
+    if getattr(submission, "target_category", None) == category:
+        return True
+    
+    # Keyword-based check as backup/fallback
+    notes_lower = (submission.notes or "").lower()
+    doc_lower = (submission.document_url or "").lower()
+    
+    if category == "rules":
+        keywords = ["billing", "card", "mismatch", "cnp", "country", "limit", "amount", "present", "ticket"]
+    elif category == "velocity":
+        keywords = ["velocity", "spending", "frequency", "limit", "volume", "amount", "average", "pattern", "velocity_spike_1h", "velocity_spike", "ticket_size_deviation"]
+    elif category == "graph":
+        keywords = ["device", "ip", "shared", "hardware", "network", "overlap", "identity", "connection", "used_device", "shared_with"]
+    elif category == "policy":
+        keywords = ["policy", "compliance", "regulation", "guideline", "directive", "legal", "terms", "verification directive"]
+    else:
+        keywords = []
+        
+    return any(kw in notes_lower or kw in doc_lower for kw in keywords)
+
 class TransactionRiskAgent:
     """Specialist evaluating immediate transaction features against core anti-fraud rules."""
     
@@ -63,16 +87,26 @@ class TransactionRiskAgent:
         
 
         # Check if merchant submitted resolving evidence
-        submission = None
+        submissions = []
         if db is not None:
             from app.models.merchant_submission import MerchantSubmission
-            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+            submissions = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).all()
         
-        if submission:
-            rule_score = 0.0
-            outcome = "Transaction profile reviewed. Violations resolved via merchant submitted documentation."
-            evidence = f"Heuristic rule violations resolved. Merchant submitted verification notes: \"{submission.notes}\"."
-            structured_evidences = []
+        if submissions:
+            fully_addressed = any(submission_addresses_category(s, "rules") for s in submissions)
+            if fully_addressed:
+                rule_score = 0.0
+                outcome = "Transaction profile reviewed. Violations resolved via merchant submitted documentation."
+                evidence = "Heuristic rule violations resolved. Merchant submitted verification notes."
+                structured_evidences = []
+            else:
+                rule_score = rule_score * 0.80
+                outcome = (
+                    f"Transaction profiled. Violations found: {len(violations)}. "
+                    f"Merchant submitted generic/insufficient evidence. Applied partial 20% risk reduction."
+                )
+                evidence = " | ".join(evidence_logs) if evidence_logs else "No heuristic rule violations detected."
+                evidence += " (Partial 20% reduction applied: submission did not address heuristic rules)."
         else:
             outcome = (
                 f"Transaction profiled. Violations found: {len(violations)}. "
@@ -159,16 +193,26 @@ class BehavioralRiskAgent:
         behavioral_score = min(100.0, len(violations) * 50.0)
         
         # Check if merchant submitted resolving evidence
-        submission = None
+        submissions = []
         if db is not None:
             from app.models.merchant_submission import MerchantSubmission
-            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+            submissions = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).all()
         
-        if submission:
-            behavioral_score = 0.0
-            outcome = "Behavioral velocity reviewed. Anomalies resolved via merchant verification."
-            evidence = f"Velocity rules resolved. Merchant submitted verification notes: \"{submission.notes}\"."
-            structured_evidences = []
+        if submissions:
+            fully_addressed = any(submission_addresses_category(s, "velocity") for s in submissions)
+            if fully_addressed:
+                behavioral_score = 0.0
+                outcome = "Behavioral velocity reviewed. Anomalies resolved via merchant verification."
+                evidence = "Velocity rules resolved. Merchant submitted verification notes."
+                structured_evidences = []
+            else:
+                behavioral_score = behavioral_score * 0.80
+                outcome = (
+                    f"Behavioral velocity analyzed. Detected anomalies: {len(violations)}. "
+                    f"Merchant submitted generic/insufficient evidence. Applied partial 20% risk reduction."
+                )
+                evidence = " | ".join(evidence_logs) if evidence_logs else "Customer spending velocity within normal historical bounds."
+                evidence += " (Partial 20% reduction applied: submission did not address velocity patterns)."
         else:
             outcome = f"Behavioral velocity analyzed. Detected anomalies: {len(violations)}."
             evidence = " | ".join(evidence_logs) if evidence_logs else "Customer spending velocity within normal historical bounds."
@@ -220,16 +264,26 @@ class FraudInvestigationAgent:
             evidence = "No shared device fingerprints or IP addresses linked to external customer accounts."
             
         # Check if merchant submitted resolving evidence
-        submission = None
+        submissions = []
         if db is not None:
             from app.models.merchant_submission import MerchantSubmission
-            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+            submissions = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).all()
         
-        if submission:
-            graph_score = 0.0
-            outcome = "Graph walk overlaps analyzed and resolved via merchant device authorization verification."
-            evidence = f"Graph overlap rules resolved. Merchant submitted verification notes: \"{submission.notes}\"."
-            structured_evidences = []
+        if submissions:
+            fully_addressed = any(submission_addresses_category(s, "graph") for s in submissions)
+            if fully_addressed:
+                graph_score = 0.0
+                outcome = "Graph walk overlaps analyzed and resolved via merchant device authorization verification."
+                evidence = "Graph overlap rules resolved. Merchant submitted verification notes."
+                structured_evidences = []
+            else:
+                graph_score = graph_score * 0.80
+                outcome = "Graph walk overlaps analyzed. Merchant submitted generic/insufficient evidence. Applied partial 20% risk reduction."
+                evidence = " | ".join(shared_entities) if shared_entities else "No shared device fingerprints or IP addresses linked to external customer accounts."
+                evidence += " (Partial 20% reduction applied: submission did not address graph relationships)."
+        else:
+            outcome = f"Relational walking detected link overlaps. Overlapping accounts: {degrees_of_sharing}." if degrees_of_sharing > 0 else "Graph walking completed. Node is isolated from other registered entities."
+            evidence = " | ".join(shared_entities) if shared_entities else "No shared device fingerprints or IP addresses linked to external customer accounts."
             
         return {
             "agent_name": "Fraud Investigation Agent",
@@ -285,17 +339,27 @@ class PolicyRAGAgent:
             evidence = "No active regulatory rules breached. Compliance policy search returned zero matches."
             
         # Check if merchant submitted resolving evidence
-        submission = None
+        submissions = []
         if db is not None:
             from app.models.merchant_submission import MerchantSubmission
-            submission = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).first()
+            submissions = db.query(MerchantSubmission).filter(MerchantSubmission.transaction_id == tx.id).all()
         
-        if submission:
-            policy_score = 0.0
-            outcome = "Compliance policies verified. All required documentation verified."
-            evidence = f"Policy compliance verified. Merchant submitted verification notes: \"{submission.notes}\"."
-            for se in structured_evidences:
-                se["severity"] = "low"
+        if submissions:
+            fully_addressed = any(submission_addresses_category(s, "policy") for s in submissions)
+            if fully_addressed:
+                policy_score = 0.0
+                outcome = "Compliance policies verified. All required documentation verified."
+                evidence = "Policy compliance verified. Merchant submitted verification notes."
+                for se in structured_evidences:
+                    se["severity"] = "low"
+            else:
+                policy_score = policy_score * 0.80
+                outcome = "Compliance policies analyzed. Merchant submitted generic/insufficient evidence. Applied partial 20% risk reduction."
+                evidence = " | ".join(evidence_logs) + " " + " ".join(citations) if evidence_logs else "No active regulatory rules breached."
+                evidence += " (Partial 20% reduction applied: submission did not address policy guidelines)."
+        else:
+            outcome = f"Compliance policies verified. Citations resolved: {len(citations)}." if citations else "No applicable compliance guidelines resolved in RAG registry."
+            evidence = " | ".join(evidence_logs) + " " + " ".join(citations) if evidence_logs else "No active regulatory rules breached. Compliance policy search returned zero matches."
                 
         return {
             "agent_name": "Policy Agent",
@@ -378,15 +442,7 @@ class ActionAgent:
             
         # Update transaction status and score in DB
         tx.status = new_status
-        from app.models.merchant_submission import MerchantSubmission
-        submission = db.query(MerchantSubmission).filter(
-            MerchantSubmission.transaction_id == tx.id,
-            MerchantSubmission.status == "Submitted"
-        ).first()
-        if submission:
-            tx.risk_score = 0.0
-        else:
-            tx.risk_score = score
+        tx.risk_score = score
         db.add(tx)
         db.flush()
         

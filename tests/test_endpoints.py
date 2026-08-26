@@ -267,7 +267,7 @@ def test_merchant_resolution_flow(client, db_session):
     assert trace_data["transaction"]["status"] == "Escalated"
     assert trace_data["transaction"]["risk_score"] >= 75.0
 
-    # 3. Submit merchant evidence
+    # 3. Submit generic/insufficient merchant evidence (no velocity, graph or policy keywords, no target_category)
     submit_res = client.post(f"/api/v1/transactions/{id_val}/merchant-submit", json={
         "notes": "Verified buyer billing address matches, signed delivery receipt attached.",
         "document_url": "signed_delivery_receipt.pdf"
@@ -276,15 +276,41 @@ def test_merchant_resolution_flow(client, db_session):
     assert submit_res.status_code == status.HTTP_200_OK
     sub_tx_data = submit_res.json()
     
-    # Assert status auto-cleared to Approved and score to 0.0
+    # Assert status transitioned to Approved but risk score is only reduced (still > 0.0)
     assert sub_tx_data["status"] == "Approved"
-    assert sub_tx_data["risk_score"] == 0.0
+    assert 0.0 < sub_tx_data["risk_score"] < 75.0
 
-    # 4. Check that submissions are included in investigation query
+    # 4. Now submit category-specific resolving evidence for the remaining flags (velocity, graph, policy)
+    # velocity submission
+    client.post(f"/api/v1/transactions/{id_val}/merchant-submit", json={
+        "notes": "Verifying transaction spending frequency limits.",
+        "target_category": "velocity"
+    }, headers=headers)
+
+    # graph submission
+    client.post(f"/api/v1/transactions/{id_val}/merchant-submit", json={
+        "notes": "Verifying shared device fingerprint overlaps.",
+        "target_category": "graph"
+    }, headers=headers)
+
+    # policy submission
+    submit_final = client.post(f"/api/v1/transactions/{id_val}/merchant-submit", json={
+        "notes": "Verifying policy compliance rules.",
+        "target_category": "policy"
+    }, headers=headers)
+
+    assert submit_final.status_code == status.HTTP_200_OK
+    final_tx_data = submit_final.json()
+
+    # Assert status is Approved and score is now fully resolved (only baseline ML score contributes)
+    assert final_tx_data["status"] == "Approved"
+    assert abs(final_tx_data["risk_score"] - (0.35 * 74.934)) < 1.0
+
+    # 5. Check that submissions are included in investigation query
     chk_res = client.get(f"/api/v1/transactions/{id_val}/investigation", headers=headers)
     chk_data = chk_res.json()
     assert "submissions" in chk_data
-    assert len(chk_data["submissions"]) == 1
+    assert len(chk_data["submissions"]) == 4
     assert chk_data["submissions"][0]["notes"] == "Verified buyer billing address matches, signed delivery receipt attached."
     assert chk_data["submissions"][0]["document_url"] == "signed_delivery_receipt.pdf"
     assert chk_data["submissions"][0]["status"] == "Submitted"
