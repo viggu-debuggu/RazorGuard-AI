@@ -381,6 +381,65 @@ def test_submit_analyst_decision_with_evidence(client, db_session):
     assert data["status"] == "Approved"
 
 
+def test_first_user_role_assignment_without_admin_env(client):
+    """Tests that by default (ALLOW_FIRST_USER_ADMIN=False), the first registered user gets the Analyst role."""
+    from app.core.config import settings
+    # Ensure settings has ALLOW_FIRST_USER_ADMIN set to False
+    settings.ALLOW_FIRST_USER_ADMIN = False
+
+    reg_res = client.post("/api/v1/auth/register", json={
+        "email": "first_user_no_admin@test.com",
+        "password": "securepassword",
+        "full_name": "First User Analyst"
+    })
+    assert reg_res.status_code == status.HTTP_201_CREATED
+    user_data = reg_res.json()
+    assert user_data["role"] == "Analyst"
+
+
+def test_first_user_role_assignment_with_admin_env(client):
+    """Tests that when ALLOW_FIRST_USER_ADMIN=True, the first registered user gets the Super Admin role."""
+    from app.core.config import settings
+    settings.ALLOW_FIRST_USER_ADMIN = True
+
+    reg_res = client.post("/api/v1/auth/register", json={
+        "email": "first_user_admin@test.com",
+        "password": "securepassword",
+        "full_name": "First User Super Admin"
+    })
+    assert reg_res.status_code == status.HTTP_201_CREATED
+    user_data = reg_res.json()
+    assert user_data["role"] == "Super Admin"
+
+
+def test_jwt_claims_token_type_mismatch(client):
+    """Tests that access tokens cannot be used as refresh tokens and vice versa."""
+    # 1. Register & Login
+    client.post("/api/v1/auth/register", json={
+        "email": "claims_mismatch@test.com",
+        "password": "securepassword",
+        "full_name": "Claims Tester"
+    })
+    log_res = client.post("/api/v1/auth/login", json={
+        "email": "claims_mismatch@test.com",
+        "password": "securepassword"
+    })
+    token_data = log_res.json()
+    access_token = token_data["access_token"]
+    refresh_token = token_data["refresh_token"]
+
+    # 2. Try validating access token as a refresh token (should fail 401)
+    refresh_res = client.post("/api/v1/auth/refresh", json={
+        "refresh_token": access_token
+    })
+    assert refresh_res.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # 3. Try validating refresh token as an access token on a protected endpoint (should fail 401)
+    headers = {"Authorization": f"Bearer {refresh_token}"}
+    protected_res = client.get("/api/v1/transactions/metrics/efficiency", headers=headers)
+    assert protected_res.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 
 
 

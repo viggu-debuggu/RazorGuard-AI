@@ -9,7 +9,8 @@ from app.schemas.auth import UserRegister, Token, UserOut, UserLogin, TokenRefre
 from app.api.dependencies.auth import (
     get_password_hash,
     verify_password,
-    create_access_token
+    create_access_token,
+    create_refresh_token
 )
 
 router = APIRouter()
@@ -26,9 +27,13 @@ def register_analyst(payload: UserRegister, db: Session = Depends(get_db)):
             detail="Analyst email already registered."
         )
 
-    # First user is automatically Super Admin, subsequent users are Analysts
-    num_users = db.query(User).count()
-    role = "Super Admin" if num_users == 0 else "Analyst"
+    # First user is automatically Super Admin only if ALLOW_FIRST_USER_ADMIN is set to True
+    from app.core.config import settings
+    if settings.ALLOW_FIRST_USER_ADMIN:
+        num_users = db.query(User).count()
+        role = "Super Admin" if num_users == 0 else "Analyst"
+    else:
+        role = "Analyst"
 
     hashed_pw = get_password_hash(payload.password)
     user = User(
@@ -56,7 +61,7 @@ def login_analyst(payload: UserLogin, db: Session = Depends(get_db)):
     # Generate token
     import uuid
     access_token = create_access_token(data={"sub": user.email})
-    refresh_token = create_access_token(
+    refresh_token = create_refresh_token(
         data={"sub": user.email, "jti": str(uuid.uuid4())}, 
         expires_delta=timedelta(days=7)
     )
@@ -91,6 +96,22 @@ def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
 @router.post("/refresh")
 def refresh_token(payload: TokenRefreshRequest, db: Session = Depends(get_db)):
     """Redeems a refresh token to generate a new access token and rotate the refresh token."""
+    # Decode the refresh token to check the type claim
+    from jose import JWTError, jwt
+    from app.core.config import settings
+    try:
+        decoded_payload = jwt.decode(payload.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if decoded_payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type."
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token."
+        )
+
     hashed_refresh = hashlib.sha256(payload.refresh_token.encode("utf-8")).hexdigest()
     
     db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == hashed_refresh).first()
@@ -113,7 +134,7 @@ def refresh_token(payload: TokenRefreshRequest, db: Session = Depends(get_db)):
     
     # Rotate the refresh token
     import uuid
-    new_refresh_token = create_access_token(
+    new_refresh_token = create_refresh_token(
         data={"sub": user.email, "jti": str(uuid.uuid4())}, 
         expires_delta=timedelta(days=7)
     )
