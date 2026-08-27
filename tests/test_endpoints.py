@@ -210,7 +210,7 @@ def test_merchant_resolution_flow(client, db_session):
     db_session.add(GraphEdge(source_type="User", source_id="usr_suspect_2", relation="USED_DEVICE", target_type="Device", target_id="df_res_001", weight=1.0))
 
     # Seed 5 transactions in the last hour to trigger VELOCITY_SPIKE_1H in BehavioralRiskAgent
-    # and increase velocity_1h count to 6 in the ML features (which moves the feature vector closer to High Risk centroid)
+    # and increase velocity_1h_including_current count to 6 in the ML features (which moves the feature vector closer to High Risk centroid)
     for i in range(5):
         db_session.add(Transaction(
             transaction_id=f"tx_recent_velocity_{i}",

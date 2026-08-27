@@ -6,6 +6,9 @@ from app.core.logging import setup_logging, logger
 from app.database.session import verify_db_connection, engine
 from app.models import Base
 from app.api.endpoints import auth, transactions, graph, policies
+from app.core.limiter import limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 # 1. Initialize structured logging configuration
 setup_logging()
@@ -39,6 +42,10 @@ app = FastAPI(
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     lifespan=lifespan
 )
+
+# Attach rate limiter to app state and register exception handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 3. Configure CORS Middlewares
 origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]

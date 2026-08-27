@@ -329,7 +329,7 @@ class PolicyRAGAgent:
                     "description": f"Retrieved compliance chunk: \"{chunk.content[:220]}...\"",
                     "source": "Policy Agent",
                     "confidence": float(score / 100.0),
-                    "policy_reference": f"{chunk.filename} [Index: {chunk.chunk_index}]"
+                    "policy_reference": f"policies/{chunk.filename}#chunk_{chunk.chunk_index}"
                 })
                         
             outcome = f"Compliance policies verified. Citations resolved: {len(citations)}."

@@ -428,7 +428,22 @@ export default function TransactionDetail() {
                           {ev.value && <span><span style={{ color: "var(--fg-dim)" }}>Observed:</span> {ev.value}</span>}
                           {ev.supporting_entity && <span><span style={{ color: "var(--fg-dim)" }}>Target Node:</span> {ev.supporting_entity}</span>}
                           <span><span style={{ color: "var(--fg-dim)" }}>Source:</span> {ev.source}</span>
-                          {ev.policy_reference && <span><span style={{ color: "var(--fg-dim)" }}>Policy:</span> {ev.policy_reference}</span>}
+                          {ev.policy_reference && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                              <span style={{ color: "var(--fg-dim)" }}>Policy Citation:</span>
+                              <code style={{
+                                fontSize: "0.68rem",
+                                backgroundColor: "var(--bg-inset)",
+                                border: "1px solid var(--border-subtle)",
+                                padding: "1px 6px",
+                                borderRadius: "3px",
+                                color: "var(--accent-text)",
+                                fontFamily: "var(--font-mono)"
+                              }}>
+                                {ev.policy_reference}
+                              </code>
+                            </span>
+                          )}
                           <span style={{ marginTop: "3px", borderTop: "1px solid var(--border-subtle)", paddingTop: "3px", color: "var(--fg)" }}>{ev.description}</span>
                         </div>
                       </div>
@@ -549,8 +564,17 @@ export default function TransactionDetail() {
                       </p>
                       <p style={{ color: "var(--fg)", fontStyle: "italic" }}>{ev.description}</p>
                       {ev.policy_reference && (
-                        <p style={{ marginTop: "6px", fontSize: "0.65rem", color: "var(--fg-dim)", fontFamily: "var(--font-mono)" }}>
-                          Source Document: {ev.policy_reference}
+                        <p style={{ marginTop: "6px", fontSize: "0.68rem", color: "var(--fg-dim)", fontFamily: "var(--font-mono)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          Source Document:
+                          <code style={{
+                            backgroundColor: "var(--bg-raised)",
+                            border: "1px solid var(--border-subtle)",
+                            padding: "1px 6px",
+                            borderRadius: "3px",
+                            color: "var(--accent-text)"
+                          }}>
+                            {ev.policy_reference}
+                          </code>
                         </p>
                       )}
                     </div>

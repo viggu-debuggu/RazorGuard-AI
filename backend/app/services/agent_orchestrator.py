@@ -69,8 +69,8 @@ class AgentOrchestrator:
             Transaction.user_id == tx.user_id,
             Transaction.timestamp >= one_hour_ago
         ).count()
-        # Include current transaction in the velocity count
-        velocity_1h = max(1, velocity_count)
+        # velocity_1h_including_current: counts all transactions for this user within the last hour, which includes the current transaction being scored.
+        velocity_1h_including_current = max(1, velocity_count)
 
         # Walk graph in-memory or query DB to find shared users
         shared_devices_count = db.query(GraphEdge).filter(
@@ -90,7 +90,7 @@ class AgentOrchestrator:
         ml_class, ml_score = predict_transaction_risk(
             amount=tx.amount,
             location_drift=location_drift,
-            velocity_1h=velocity_1h,
+            velocity_1h_including_current=velocity_1h_including_current,
             device_score=device_score
         )
         log_event("analysis_started", f"ML Classifier generated baseline status '{ml_class}' with score {ml_score:.1f}%.", "ML Classifier")

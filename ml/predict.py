@@ -1,7 +1,11 @@
 import os
 import json
 import math
+import logging
 from typing import List, Dict, Any, Tuple
+
+# Set up logging for ML module
+logger = logging.getLogger("ml.predict")
 
 # Path to the exported model parameters
 MODEL_FILE_PATH = os.path.join(os.path.dirname(__file__), "models", "transaction_classifier.json")
@@ -16,7 +20,7 @@ DEFAULT_CENTROIDS = {
 DEFAULT_BOUNDS = {
     "amount": [300.0, 490000.0],
     "location_drift": [0.5, 4500.0],
-    "velocity_1h": [1.0, 10.0],
+    "velocity_1h_including_current": [1.0, 10.0],
     "device_score": [0.05, 0.95]
 }
 
@@ -40,11 +44,13 @@ class ModelLoader:
                     self.bounds = data["bounds"]
                     self.loaded = True
             else:
+                logger.warning("ML_FALLBACK_ACTIVATED: using default centroids")
                 print("WARNING: ML model parameters not found at ml/models/transaction_classifier.json. Falling back to default baseline centroids.")
                 self.centroids = DEFAULT_CENTROIDS
                 self.bounds = DEFAULT_BOUNDS
                 self.loaded = False
         except Exception as e:
+            logger.warning("ML_FALLBACK_ACTIVATED: using default centroids")
             print(f"WARNING: Failed to load ML model parameters ({e}). Falling back to default baseline centroids.")
             self.centroids = DEFAULT_CENTROIDS
             self.bounds = DEFAULT_BOUNDS
@@ -58,7 +64,7 @@ def _euclidean_distance(v1: List[float], v2: List[float]) -> float:
 def predict_transaction_risk(
     amount: float, 
     location_drift: float, 
-    velocity_1h: int, 
+    velocity_1h_including_current: int, 
     device_score: float
 ) -> Tuple[str, float]:
     """
@@ -72,11 +78,11 @@ def predict_transaction_risk(
     inputs = {
         "amount": amount,
         "location_drift": location_drift,
-        "velocity_1h": float(velocity_1h),
+        "velocity_1h_including_current": float(velocity_1h_including_current),
         "device_score": device_score
     }
     
-    for key in ["amount", "location_drift", "velocity_1h", "device_score"]:
+    for key in ["amount", "location_drift", "velocity_1h_including_current", "device_score"]:
         val = inputs[key]
         f_min, f_max = model.bounds[key]
         norm_val = (val - f_min) / (f_max - f_min) if f_max > f_min else 0.0
@@ -97,13 +103,17 @@ def predict_transaction_risk(
             best_status = status
             
     # 3. Calculate dynamic ML probability score (0.0 to 100.0)
-    safe_dist = distances.get("Safe", 1.0)
-    high_risk_dist = distances.get("High Risk", 1.0)
-    total = safe_dist + high_risk_dist
+    # The ml_score represents the relative risk:
+    # A higher distance_from_safe means the transaction is farther from the Safe centroid,
+    # which implies a higher risk score. Thus, ml_score is proportional to distance_from_safe / (distance_from_safe + distance_from_high_risk).
+    distance_from_safe = distances.get("Safe", 1.0)
+    distance_from_high_risk = distances.get("High Risk", 1.0)
+    sum_of_distances = distance_from_safe + distance_from_high_risk
     
-    if total == 0:
+    if sum_of_distances == 0:
         ml_score = 50.0
     else:
-        ml_score = (safe_dist / total) * 100.0
+        # Higher distance from safe centroid = farther from safe = higher risk score
+        ml_score = (distance_from_safe / sum_of_distances) * 100.0
         
     return best_status, float(ml_score)

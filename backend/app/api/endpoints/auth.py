@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database.session import get_db
@@ -12,12 +12,14 @@ from app.api.dependencies.auth import (
     create_access_token,
     create_refresh_token
 )
+from app.core.limiter import limiter
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register_analyst(payload: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")  # Set to 20/minute for demo rehearsal; production value should be lower (e.g. 5/minute)
+def register_analyst(payload: UserRegister, request: Request, db: Session = Depends(get_db)):
     """Registers a new risk analyst account."""
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == payload.email).first()
@@ -49,7 +51,8 @@ def register_analyst(payload: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login_analyst(payload: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")  # Set to 20/minute for demo rehearsal; production value should be lower (e.g. 5/minute)
+def login_analyst(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
     """Analyst login endpoint returning secure JWT access token."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):

@@ -18,3 +18,4 @@ sentence-transformers>=2.6.0
 pgvector>=0.2.5
 networkx>=3.2.1
 email-validator>=2.1.1
+slowapi>=0.1.9

@@ -46,8 +46,12 @@ def hybrid_retrieve_policy_chunks(
     blending results using Reciprocal Rank Fusion (RRF).
     """
     # 1. Dense retrieval (pgvector)
-    query_vector = generate_embedding(query)
-    dense_results = search_vector_store(db, query_vector, limit=limit * 2)
+    try:
+        query_vector = generate_embedding(query)
+        dense_results = search_vector_store(db, query_vector, limit=limit * 2)
+    except Exception as e:
+        logger.warning("RAG_DENSE_RETRIEVAL_FAILED: falling back to sparse keyword search only", error=str(e))
+        dense_results = []
     
     # 2. Sparse retrieval (Keyword SQL query)
     sparse_results = perform_sparse_keyword_search(db, query, limit=limit * 2)

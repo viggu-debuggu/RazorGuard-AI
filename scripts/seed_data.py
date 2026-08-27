@@ -1,10 +1,13 @@
 import sys
 import os
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import cast
 
-# Append backend directory to sys.path to enable imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "backend"))
+# Append backend directory to sys.path to enable imports in both local and docker environments
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(parent_dir)
+sys.path.append(os.path.join(parent_dir, "backend"))
 
 from app.database.session import SessionLocal, Base, engine
 from app.models.user import User
@@ -202,7 +205,7 @@ MOCK_TRANSACTIONS = [
         "merchant_category": "electronics",
         "status": "Blocked",
         "risk_score": 85.0,
-        "timestamp": datetime.utcnow() - timedelta(minutes=5)
+        "timestamp": datetime.now(timezone.utc) - timedelta(minutes=5)
     },
     {
         "transaction_id": "tx_demo_fail_2",
@@ -218,7 +221,7 @@ MOCK_TRANSACTIONS = [
         "merchant_category": "electronics",
         "status": "Blocked",
         "risk_score": 85.0,
-        "timestamp": datetime.utcnow() - timedelta(minutes=4)
+        "timestamp": datetime.now(timezone.utc) - timedelta(minutes=4)
     },
     {
         "transaction_id": "tx_demo_fail_3",
@@ -234,7 +237,7 @@ MOCK_TRANSACTIONS = [
         "merchant_category": "electronics",
         "status": "Blocked",
         "risk_score": 85.0,
-        "timestamp": datetime.utcnow() - timedelta(minutes=3)
+        "timestamp": datetime.now(timezone.utc) - timedelta(minutes=3)
     },
     {
         "transaction_id": "tx_demo_fail_4",
@@ -250,7 +253,7 @@ MOCK_TRANSACTIONS = [
         "merchant_category": "electronics",
         "status": "Blocked",
         "risk_score": 85.0,
-        "timestamp": datetime.utcnow() - timedelta(minutes=2)
+        "timestamp": datetime.now(timezone.utc) - timedelta(minutes=2)
     },
 
     # Suspect transactions that shared the device fingerprint df_demo_unseen_99
@@ -384,7 +387,7 @@ def seed_database():
             embedding = generate_embedding(content)
             save_policy_chunk(
                 db=db,
-                document_id=doc.id,
+                document_id=cast(int, doc.id),
                 chunk_index=0,
                 content=content,
                 embedding=embedding
@@ -462,7 +465,7 @@ def seed_database():
                             evidence_snapshot=snapshot_b
                         )
                         db.add(dec_b)
-                        tx_b.status = "Approved"
+                        tx_b.status = cast(str, "Approved")
                         db.add(tx_b)
                         
                         # Add AuditLog
@@ -512,7 +515,7 @@ def seed_database():
                             evidence_snapshot=snapshot_c
                         )
                         db.add(dec_c)
-                        tx_c.status = "Blocked"
+                        tx_c.status = cast(str, "Blocked")
                         db.add(tx_c)
 
                         # Add AuditLog
@@ -530,7 +533,7 @@ def seed_database():
             executions = db.query(AgentExecution).all()
             for exe in executions:
                 if exe.duration == 0.0 or not exe.duration:
-                    exe.duration = 0.85
+                    exe.duration = cast(float, 0.85)
                     db.add(exe)
 
             db.commit()

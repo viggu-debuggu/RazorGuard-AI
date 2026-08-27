@@ -1,20 +1,43 @@
-from pydantic import BaseModel, ConfigDict
+from enum import Enum
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 
+class MerchantCategory(str, Enum):
+    FOOD = "food"
+    ELECTRONICS = "electronics"
+    CRYPTO = "crypto"
+    RETAIL = "retail"
+    GAMING = "gaming"
+    TRAVEL = "travel"
+    ENTERTAINMENT = "entertainment"
+    OTHER = "other"
+
+
 class TransactionCreate(BaseModel):
-    transaction_id: str
-    user_id: str
-    amount: float
-    currency: str
-    device_fingerprint: str
-    ip_address: str
-    billing_country: str
-    card_country: str
+    transaction_id: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-]+$")
+    user_id: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-]+$")
+    amount: float = Field(..., gt=0.0)
+    currency: str = Field(..., min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
+    device_fingerprint: str = Field(..., min_length=1, max_length=128)
+    ip_address: str = Field(..., min_length=1, max_length=45)
+    billing_country: str = Field(..., min_length=2, max_length=2, pattern=r"^[A-Z]{2}$")
+    card_country: str = Field(..., min_length=2, max_length=2, pattern=r"^[A-Z]{2}$")
     card_present: bool
-    merchant_id: str
-    merchant_category: str
+    merchant_id: str = Field(..., min_length=1, max_length=100)
+    merchant_category: MerchantCategory
+
+    @field_validator("ip_address")
+    @classmethod
+    def validate_ip(cls, v: str) -> str:
+        import ipaddress
+        try:
+            ipaddress.ip_address(v)
+        except ValueError:
+            raise ValueError("Invalid IP address format")
+        return v
+
 
 class TransactionOut(BaseModel):
     id: int
@@ -28,7 +51,7 @@ class TransactionOut(BaseModel):
     card_country: str
     card_present: bool
     merchant_id: str
-    merchant_category: str
+    merchant_category: MerchantCategory
     status: str
     risk_score: float
     timestamp: datetime
