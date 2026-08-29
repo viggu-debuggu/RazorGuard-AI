@@ -8,14 +8,14 @@ import { API_URL } from "../lib/api";
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 
 const NODE_CONFIG = {
-  User:        { color: "#6B7FD4", shape: "circle"  },
-  Transaction: { color: "#C9974A", shape: "diamond" },
-  Device:      { color: "#3D7A5C", shape: "square"  },
-  IP:          { color: "#B08040", shape: "triangle" },
-  Merchant:    { color: "#8E44AD", shape: "hexagon" },
+  User:        { color: "#818CF8", shape: "circle"  }, // --node-user
+  Transaction: { color: "#FBBF24", shape: "diamond" }, // --node-transaction
+  Device:      { color: "#34D399", shape: "square"  }, // --node-device
+  IP:          { color: "#F97316", shape: "triangle" }, // --node-ip
+  Merchant:    { color: "#C084FC", shape: "hexagon" }, // --node-merchant
 };
 
-const DEFAULT_COLOR = "#7A7A88";
+const DEFAULT_COLOR = "#71717A"; // --node-default
 
 const EDGE_LABEL_MAP = {
   "SHARED_WITH":  "shares device with",

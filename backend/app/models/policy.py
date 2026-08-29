@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, PickleType
 from sqlalchemy.orm import relationship
 from app.database.session import Base
@@ -20,7 +20,7 @@ class PolicyDocument(Base):
     title = Column(String(255), nullable=False)
     filename = Column(String(255), nullable=False)
     checksum = Column(String(64), unique=True, nullable=False) # SHA256 file verification
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     chunks = relationship("PolicyChunk", back_populates="document", cascade="all, delete-orphan")

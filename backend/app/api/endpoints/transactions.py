@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from app.database.session import get_db
 from app.api.dependencies.auth import get_current_user
 from app.models.user import User
@@ -36,6 +36,7 @@ def run_ingest_investigation(transaction_id: str):
         AgentOrchestrator.run_investigation(db, transaction_id)
     except Exception as e:
         logger.error("orchestrator_execution_failed_during_ingest_bg", transaction_id=transaction_id, error=str(e))
+        db.rollback()  # Clear any partial state before the status update
         tx = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
         if tx:
             tx.status = "Escalated"
@@ -56,7 +57,7 @@ def run_merchant_revaluation(transaction_id: str, tx_id: int):
                 event="auto_resolved",
                 description=f"Transaction automatically resolved and approved after verifying merchant materials. Risk score updated to {tx.risk_score:.0f}%.",
                 actor="System Orchestrator",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 metadata_json={
                     "new_score": tx.risk_score,
                     "new_status": tx.status
@@ -217,7 +218,7 @@ def get_dashboard_metrics(
     Returns real, calculated statistics and data monitoring health indicators from the DB.
     """
     # 1. Total processed today (since start of day)
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     processed_today = db.query(Transaction).filter(Transaction.timestamp >= today_start).count()
 
     # 2. Count by statuses
@@ -248,7 +249,7 @@ def get_dashboard_metrics(
 
     # 7. Volume trend for last 24 hours (grouped by hour)
     volume_trend = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for h in range(24):
         target_hour = now - timedelta(hours=23 - h)
         hour_start = target_hour.replace(minute=0, second=0, microsecond=0)
@@ -435,7 +436,7 @@ def submit_analyst_decision(
         event=event_name,
         description=audit_desc,
         actor=f"Analyst: {current_user.email}",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         metadata_json={
             "action": payload.action,
             "previous_status": original_rec,
@@ -474,7 +475,7 @@ def submit_merchant_evidence(
         document_url=payload.document_url,
         target_category=payload.target_category,
         status="Submitted",
-        submitted_at=datetime.utcnow()
+        submitted_at=datetime.now(timezone.utc)
     )
     db.add(sub)
     db.flush()
@@ -489,7 +490,7 @@ def submit_merchant_evidence(
             + "."
         ),
         actor=f"Merchant Account: {tx.user_id}",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         metadata_json={
             "notes": payload.notes,
             "document": payload.document_url,

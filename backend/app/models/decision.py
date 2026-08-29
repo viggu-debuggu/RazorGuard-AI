@@ -1,8 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Float, JSON
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from ..database.session import Base
+
+try:
+    from sqlalchemy.dialects.postgresql import JSONB
+except ImportError:
+    JSONB = None  # type: ignore
 
 
 class AnalystDecision(Base):
@@ -21,7 +25,7 @@ class AnalystDecision(Base):
     risk_score_at_decision_time = Column(Float, nullable=True)
     evidence_snapshot = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     
-    submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    submitted_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     transaction = relationship("Transaction", back_populates="decisions")

@@ -11,14 +11,14 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false 
 
 // Node visual config: shape + color (redundant coding for accessibility)
 const NODE_CONFIG = {
-  User:        { color: "#6B7FD4", shape: "circle",   label: "User Account",        edgeColor: "#6B7FD4" },
-  Transaction: { color: "#C9974A", shape: "diamond",  label: "Transaction",         edgeColor: "#C9974A" },
-  Device:      { color: "#3D7A5C", shape: "square",   label: "Device Fingerprint",  edgeColor: "#3D7A5C" },
-  IP:          { color: "#B08040", shape: "triangle",  label: "IP Address",          edgeColor: "#B08040" },
-  Merchant:    { color: "#8E44AD", shape: "hexagon",  label: "Merchant",            edgeColor: "#8E44AD" },
+  User:        { color: "#818CF8", shape: "circle",   label: "User Account",        edgeColor: "#818CF8" },
+  Transaction: { color: "#FBBF24", shape: "diamond",  label: "Transaction",         edgeColor: "#FBBF24" },
+  Device:      { color: "#34D399", shape: "square",   label: "Device Fingerprint",  edgeColor: "#34D399" },
+  IP:          { color: "#F97316", shape: "triangle",  label: "IP Address",          edgeColor: "#F97316" },
+  Merchant:    { color: "#C084FC", shape: "hexagon",  label: "Merchant",            edgeColor: "#C084FC" },
 };
 
-const DEFAULT_COLOR = "#7A7A88";
+const DEFAULT_COLOR = "#71717A";
 
 const EDGE_LABEL_MAP = {
   "SHARED_WITH": "shares device with",
@@ -426,13 +426,13 @@ export default function GraphPlayground() {
               ref={graphRef}
               graphData={displayData}
               nodeId="id"
-              backgroundColor="#0D0D0F"
+              backgroundColor="#0A0A0C"
               width={undefined}
               height={560}
               nodeCanvasObject={(node, ctx, globalScale) => drawNode(node, ctx, globalScale)}
               nodeCanvasObjectMode={() => "replace"}
               linkColor={(link) => {
-                if (hoveredLink === link) return "rgba(201,151,74,0.9)";
+                if (hoveredLink === link) return "rgba(99, 102, 241, 0.9)";
                 if (selectedNode) {
                   const srcId = typeof link.source === "object" ? link.source.id : link.source;
                   const tgtId = typeof link.target === "object" ? link.target.id : link.target;

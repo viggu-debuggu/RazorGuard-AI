@@ -94,7 +94,7 @@ export default function TransactionsQueue() {
           marginBottom: "14px",
           padding: "10px 14px",
           borderBottom: "1px solid var(--border)",
-          backgroundColor: "var(--bg-surface)",
+          backgroundColor: "var(--bg-raised)",
           borderRadius: "4px 4px 0 0",
         }}
       >
@@ -214,7 +214,7 @@ export default function TransactionsQueue() {
                       <td className="num">
                         <span style={{ fontSize: "0.82rem" }}>
                           {tx.currency}{" "}
-                          {tx.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          {tx.amount?.toLocaleString("en-IN", { minimumFractionDigits: 2 }) ?? "0.00"}
                         </span>
                       </td>
                       <td style={{ color: "var(--fg-muted)", fontSize: "0.78rem" }}>

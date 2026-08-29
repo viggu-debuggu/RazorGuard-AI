@@ -2,7 +2,7 @@ import os
 import json
 import math
 from typing import List, Dict, Any, Tuple
-from preprocess import prepare_dataset
+from ml.preprocess import prepare_dataset
 
 class NearestCentroidClassifier:
     """Pure Python Nearest-Centroid classifier for zero-dependency transaction scoring."""

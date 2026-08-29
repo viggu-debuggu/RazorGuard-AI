@@ -1,6 +1,7 @@
 import os
 import sys
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 # Add backend directory and root directory to PYTHONPATH
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -170,8 +171,9 @@ def main():
         for scen in scenarios:
             print(f"Evaluating {scen['name']}...")
             # Trigger setup hook if defined
-            if scen["setup"]:
-                scen["setup"](db, scen["user_id"])
+            setup_fn = cast(Any, scen["setup"])
+            if setup_fn:
+                setup_fn(db, scen["user_id"])
                 
             # Create transaction
             tx = Transaction(
@@ -194,7 +196,7 @@ def main():
             db.commit()
             
             # Execute agent multi-agent sequence via orchestrator
-            assessment, trace = AgentOrchestrator.run_investigation(db, tx.transaction_id)
+            assessment, trace = AgentOrchestrator.run_investigation(db, str(tx.transaction_id))
             
             # Refresh from DB
             db.refresh(tx)
@@ -266,13 +268,14 @@ def seed_historical_spend(db, user_id):
 
 def seed_graph_overlaps(db, user_id):
     # Seed shared device matches
+    # source_id and target_id store the raw ID only — source_type / target_type hold the type prefix
     edges = [
         # Link main user to device
-        GraphEdge(source_type="User", source_id=f"User:{user_id}", relation="USED_DEVICE", target_type="Device", target_id="Device:df_shared_device_999", weight=1.0),
+        GraphEdge(source_type="User", source_id=user_id, relation="USED_DEVICE", target_type="Device", target_id="df_shared_device_999", weight=1.0),
         # Link suspect account 1 to same device
-        GraphEdge(source_type="User", source_id="User:usr_suspect_1", relation="USED_DEVICE", target_type="Device", target_id="Device:df_shared_device_999", weight=1.0),
+        GraphEdge(source_type="User", source_id="usr_suspect_1", relation="USED_DEVICE", target_type="Device", target_id="df_shared_device_999", weight=1.0),
         # Link suspect account 2 to same device
-        GraphEdge(source_type="User", source_id="User:usr_suspect_2", relation="USED_DEVICE", target_type="Device", target_id="Device:df_shared_device_999", weight=1.0)
+        GraphEdge(source_type="User", source_id="usr_suspect_2", relation="USED_DEVICE", target_type="Device", target_id="df_shared_device_999", weight=1.0)
     ]
     for e in edges:
         db.add(e)
@@ -298,7 +301,7 @@ def seed_compliance_policy(db):
     
     save_policy_chunk(
         db=db,
-        document_id=doc.id,
+        document_id=cast(int, doc.id),
         chunk_index=0,
         content=content,
         embedding=embedding

@@ -1,5 +1,7 @@
 # 🛡️ RazorGuard AI — Payment Risk Investigation & Decision Support
 
+[![CI](https://github.com/viggu-debuggu/RazorGuard-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/viggu-debuggu/RazorGuard-AI/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Node Version](https://img.shields.io/badge/node-20+-green.svg)](https://nodejs.org/)
 
@@ -103,6 +105,31 @@ docker compose exec backend python scripts/seed_data.py
 
 ---
 
+## Evaluation Results
+
+Run `python scripts/evaluate.py` from the repo root to reproduce these numbers.
+
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| Safe | 1.000 | 1.000 | 1.000 |
+| Suspicious | 1.000 | 1.000 | 1.000 |
+| High Risk | 1.000 | 1.000 | 1.000 |
+| **Macro avg** | | | **1.000** |
+
+- **False-Positive Rate** (legitimate transactions incorrectly flagged): **0.00%**
+- **Dataset**: 200 synthetic transactions (70% legit / 30% fraud)
+- **Latency** (Deterministic Score Engine, p50/p95): **0.005 ms / 0.007 ms**
+
+See [docs/EVALUATION.md](docs/EVALUATION.md) for the full confusion matrix and latency breakdown.
+
+---
+
+## Security Considerations
+
+All analyst-facing endpoints are protected by **JWT Bearer tokens** (HS256 + bcrypt password hashing + refresh token rotation). The `SECRET_KEY` is validated at startup and raises a hard error if unset in production mode. Rate limiting (slowapi) is applied to `/auth/login` and `/auth/register`. No raw card numbers or CVVs are stored — the system operates on derived signals (amount, country codes, device fingerprint hashes). See [docs/SECURITY.md](docs/SECURITY.md) for the full audit.
+
+---
+
 ## Demo Scenarios
 
 The sandbox environment contains three reproducible scenarios designed to show how different inputs change the derived evidence and deterministic outcomes:
@@ -138,6 +165,12 @@ For a detailed derivation breakdown, logic behind averaged weights, mathematical
 - **Card-Node Identity**: Card nodes in [`knowledge_graph/network_builder.py:L31`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/knowledge_graph/network_builder.py#L31) are represented as `Card:{billing_country}_{card_country}`. While sufficient for synthetic demo data, in a production setting this collapses distinct cards from the same country pairs and would be replaced with unique card tokens or card number hashes.
 - **Model Scale Limits**: The Nearest Centroid Classifier in [`ml/predict.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/ml/predict.py) is trained on a small, mock synthetic dataset in [`ml/train.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/ml/train.py) to keep execution deterministic. It has not been backtested or optimized for high-throughput production data scales.
 - **Seeded Credentials**: The login credentials for risk analysts are stored as plaintext values in [`scripts/seed_data.py:L351-L360`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/scripts/seed_data.py#L351-L360) for judge convenience and seeder simplicity. Production deployments would rely on secure external identity providers (IdPs) or single sign-on (SSO) integrations.
+
+---
+
+## Why Nearest Centroid Instead of Isolation Forest or XGBoost?
+
+Three reasons drove this choice. First, **interpretability**: Nearest Centroid produces human-readable centroid coordinates stored as a 200-byte JSON file — any compliance auditor can understand exactly why a transaction was classified without SHAP values or data science tooling. Second, **cold-start performance**: the classifier needs as few as 3 labelled examples (one per class) and trains in under 10 ms — no GPU, no minimum dataset size, no retraining pipeline. Third, **zero runtime dependencies**: inference uses only Python standard library (`math`, `json`, `os`), eliminating pickle-format breaking changes, scikit-learn version conflicts, and an entire category of CVE exposure. For a full cost and latency comparison against LLM-only scoring and tree ensembles, see [docs/ARCHITECTURE_TRADEOFFS.md](docs/ARCHITECTURE_TRADEOFFS.md).
 
 ---
 

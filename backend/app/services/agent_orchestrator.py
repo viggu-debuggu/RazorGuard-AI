@@ -1,6 +1,6 @@
 import time
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Tuple, List, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.transaction import Transaction
@@ -39,7 +39,7 @@ class AgentOrchestrator:
             raise ValueError(f"Transaction '{transaction_id}' not found.")
             
         def log_event(event: str, description: str, agent: str = "Orchestrator"):
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             reasoning_steps.append({
                 "timestamp": now.isoformat() + "Z",
                 "event": event,
@@ -64,7 +64,7 @@ class AgentOrchestrator:
         # Calculate dynamic parameters based on current database state
         location_drift = 4500.0 if tx.billing_country != tx.card_country else 5.0
         
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
         velocity_count = db.query(Transaction).filter(
             Transaction.user_id == tx.user_id,
             Transaction.timestamp >= one_hour_ago
@@ -93,7 +93,7 @@ class AgentOrchestrator:
             velocity_1h_including_current=velocity_1h_including_current,
             device_score=device_score
         )
-        log_event("analysis_started", f"ML Classifier generated baseline status '{ml_class}' with score {ml_score:.1f}%.", "ML Classifier")
+        log_event("ml_inference_completed", f"ML Classifier generated baseline status '{ml_class}' with score {ml_score:.1f}%.", "ML Classifier")
         
         # 3. Execute Transaction Risk Agent (Rules)
         tx_res = TransactionRiskAgent.process_task(db, tx)
@@ -247,7 +247,7 @@ class AgentOrchestrator:
                 supporting_entity=ev_data.get("supporting_entity"),
                 supporting_transaction=ev_data.get("supporting_transaction"),
                 policy_reference=ev_data.get("policy_reference"),
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             db.add(evidence_record)
         
@@ -301,7 +301,7 @@ class AgentOrchestrator:
             graph_score=graph_score,
             policy_score=policy_score,
             explanation=explanation_markdown,
-            analyzed_at=datetime.utcnow()
+            analyzed_at=datetime.now(timezone.utc)
         )
         db.add(assessment)
         

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.database.session import Base
@@ -21,7 +21,7 @@ class RiskAssessment(Base):
     policy_score = Column(Float, default=0.0, nullable=False)
     
     explanation = Column(Text, nullable=True) # Detailed Markdown explanation
-    analyzed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    analyzed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     transaction = relationship("Transaction", back_populates="assessment")

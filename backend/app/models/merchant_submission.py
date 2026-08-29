@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.database.session import Base
@@ -13,7 +13,7 @@ class MerchantSubmission(Base):
     notes = Column(Text, nullable=False)
     document_url = Column(String(255), nullable=True)
     target_category = Column(String(50), nullable=True)
-    submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    submitted_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     status = Column(String(50), default="Submitted", nullable=False)
 
     # Relationships

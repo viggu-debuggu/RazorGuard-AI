@@ -16,5 +16,10 @@
     "react-force-graph-2d": "^1.25.0",
     "clsx": "^2.1.0",
     "tailwind-merge": "^2.2.2"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.35",
+    "autoprefixer": "^10.4.18"
   }
 }

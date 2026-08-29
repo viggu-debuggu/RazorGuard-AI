@@ -4,13 +4,19 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from app.core.config import settings
 from app.core.logging import logger
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,  # Check connection health before using
-    pool_size=10,        # Max connection pool size
-    max_overflow=20,     # Max overflow connections
-    pool_recycle=3600    # Recycle connections after 1 hour
-)
+# SQLite does not support connection pool arguments — guard for test environments
+_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+_engine_kwargs: dict = {"pool_pre_ping": True}
+if not _is_sqlite:
+    _engine_kwargs["pool_size"] = 10
+    _engine_kwargs["max_overflow"] = 20
+    _engine_kwargs["pool_recycle"] = 3600
+else:
+    # Required for SQLite multi-thread safety in tests
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

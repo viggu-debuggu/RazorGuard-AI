@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.database.session import Base
@@ -16,7 +16,7 @@ class Evidence(Base):
     description = Column(Text, nullable=False)
     source = Column(String(100), nullable=False)
     confidence = Column(Float, default=1.0)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     
     supporting_entity = Column(String(100), nullable=True)
     supporting_transaction = Column(String(100), nullable=True)

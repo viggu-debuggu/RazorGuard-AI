@@ -47,8 +47,9 @@ export default function LoginPage() {
           maxWidth: "360px",
           backgroundColor: "var(--bg-surface)",
           border: "1px solid var(--border)",
-          borderRadius: "4px",
+          borderRadius: "6px",
           padding: "36px 32px",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.4)",
         }}
       >
         {/* Logo */}

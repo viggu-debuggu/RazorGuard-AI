@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { API_URL } from "../lib/api";
 
 
@@ -21,6 +21,27 @@ export const AuthProvider = ({ children }) => {
     }
     setLoading(false);
   }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  // Global fetch wrapper — auto-logout on 401 so stale tokens never
+  // leave the analyst on a broken screen after a container restart.
+  const apiFetch = useCallback(
+    async (url, options = {}) => {
+      const res = await fetch(url, options);
+      if (res.status === 401) {
+        logout();
+        // Return the response so callers can still inspect it if needed
+      }
+      return res;
+    },
+    [logout]
+  );
 
   const login = async (email, password) => {
     try {
@@ -46,15 +67,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setToken(null);
-    setUser(null);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, apiFetch, loading }}>
       {children}
     </AuthContext.Provider>
   );

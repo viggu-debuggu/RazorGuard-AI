@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { API_URL } from "../../lib/api";
+import { CheckCircle } from "lucide-react";
 
 const MOCK_CHART_DATA = [
   { time: "08:00", volume: 140, risk: 2 },
@@ -123,7 +124,7 @@ export default function DashboardHome() {
             { label: "Awaiting Review", value: metrics.awaiting_review, color: "var(--risk-warn)" },
             { label: "Blocked", value: metrics.blocked, color: "var(--risk-high)" },
           ].map(({ label, value, color }) => (
-            <div key={label} className="panel" style={{ padding: "12px 14px" }}>
+            <div key={label} className="panel" style={{ padding: "12px 14px", borderLeft: `2px solid ${color}` }}>
               <p
                 style={{
                   fontSize: "0.68rem",
@@ -140,7 +141,7 @@ export default function DashboardHome() {
                 className="display-num"
                 style={{ fontSize: "1.8rem", fontWeight: 400, color, lineHeight: 1 }}
               >
-                {value.toLocaleString()}
+                {value?.toLocaleString() ?? "0"}
               </p>
             </div>
           ))}
@@ -165,22 +166,22 @@ export default function DashboardHome() {
           {[
             {
               label: "Avg. analyst time per case",
-              value: `${efficiency.avg_analyst_review_minutes.toFixed(1)} min`,
+              value: `${efficiency?.avg_analyst_review_minutes?.toFixed(1) ?? "0.0"} min`,
               color: "var(--accent-text)",
             },
             {
               label: "Cases processed",
-              value: efficiency.total_cases_processed.toLocaleString(),
+              value: efficiency?.total_cases_processed?.toLocaleString() ?? "0",
               color: "var(--fg)",
             },
             {
               label: "Audit-ready decisions",
-              value: `${efficiency.pct_decisions_with_justification.toFixed(0)}%`,
+              value: `${efficiency?.pct_decisions_with_justification?.toFixed(0) ?? "0"}%`,
               color: "var(--risk-safe)",
             },
             {
               label: "AI investigation speed",
-              value: `${efficiency.avg_investigation_time_seconds.toFixed(1)}s`,
+              value: `${efficiency?.avg_investigation_time_seconds?.toFixed(1) ?? "0.0"}s`,
               color: "var(--fg)",
             },
           ].map(({ label, value, color }) => (
@@ -242,7 +243,7 @@ export default function DashboardHome() {
                 <Line
                   type="monotone"
                   dataKey="volume"
-                  stroke="#5B7FD4"
+                  stroke="var(--chart-series-1)"
                   strokeWidth={1.5}
                   dot={false}
                   name="Payment Volume"
@@ -260,7 +261,7 @@ export default function DashboardHome() {
           </div>
           <div style={{ display: "flex", gap: "16px", marginTop: "10px" }}>
             <span style={{ fontSize: "0.7rem", color: "var(--fg-muted)", display: "flex", alignItems: "center", gap: "5px" }}>
-              <span style={{ display: "inline-block", width: "14px", height: "2px", background: "#5B7FD4" }} />
+              <span style={{ display: "inline-block", width: "14px", height: "2px", background: "var(--chart-series-1)" }} />
               Payment Volume
             </span>
             <span style={{ fontSize: "0.7rem", color: "var(--fg-muted)", display: "flex", alignItems: "center", gap: "5px" }}>
@@ -295,7 +296,7 @@ export default function DashboardHome() {
                   gap: "6px",
                 }}
               >
-                <span style={{ fontSize: "1.4rem" }}>—</span>
+                <CheckCircle size={20} style={{ color: "var(--risk-safe)", marginBottom: "4px" }} />
                 <p style={{ fontSize: "0.78rem", color: "var(--fg-muted)" }}>Queue is clear</p>
                 <p style={{ fontSize: "0.7rem", color: "var(--fg-dim)" }}>No escalations pending analyst review</p>
               </div>
@@ -336,7 +337,7 @@ export default function DashboardHome() {
                       </p>
                       <p style={{ fontSize: "0.68rem", color: "var(--fg-muted)", marginTop: "2px" }}>
                         {tx.currency}{" "}
-                        {tx.amount.toLocaleString("en-IN")} · Escalated{" "}
+                        {tx.amount?.toLocaleString("en-IN") ?? "0"} · Escalated{" "}
                         {relativeTime(tx.timestamp)}
                       </p>
                     </div>

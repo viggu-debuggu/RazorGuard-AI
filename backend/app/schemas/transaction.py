@@ -73,14 +73,14 @@ class RiskAssessmentOut(BaseModel):
 class AgentMemoryOut(BaseModel):
     agent_name: str
     reasoning: str
-    evidence: Optional[str]
+    evidence: Optional[str] = None
     confidence: float
 
     model_config = ConfigDict(from_attributes=True)
 
 class AnalystDecisionSubmit(BaseModel):
     action: str # "Approve", "Block", "Escalate"
-    notes: Optional[str]
+    notes: Optional[str] = None
 
 class AnalystDecisionOut(BaseModel):
     id: int
@@ -140,7 +140,6 @@ class InvestigationOut(BaseModel):
     assessment: Optional[RiskAssessmentOut]
     reasoning_steps: List[Dict] # structured timeline trace
     memories: List[AgentMemoryOut]
-    decidences: Optional[List[EvidenceOut]] = None # alias or explicit evidences
     evidences: List[EvidenceOut] = []
     audit_logs: List[AuditLogOut] = []
     decisions: List[AnalystDecisionOut] = []

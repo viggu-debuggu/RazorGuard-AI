@@ -336,37 +336,13 @@ export default function TransactionDetail() {
       {/* === View Mode Switcher Toggle === */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "18px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "12px" }}>
         <button
-          className={viewMode === "analyst" ? "primary" : "secondary"}
-          style={{
-            fontSize: "0.74rem",
-            fontWeight: "700",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            padding: "6px 14px",
-            backgroundColor: viewMode === "analyst" ? "var(--accent)" : "transparent",
-            color: viewMode === "analyst" ? "var(--bg)" : "var(--fg)",
-            border: viewMode === "analyst" ? "1px solid var(--accent)" : "1px solid var(--border)",
-            borderRadius: "3px",
-            cursor: "pointer"
-          }}
+          className={viewMode === "analyst" ? "primary active" : "secondary"}
           onClick={() => setViewMode("analyst")}
         >
           Analyst Console
         </button>
         <button
-          className={viewMode === "merchant" ? "primary" : "secondary"}
-          style={{
-            fontSize: "0.74rem",
-            fontWeight: "700",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            padding: "6px 14px",
-            backgroundColor: viewMode === "merchant" ? "var(--accent)" : "transparent",
-            color: viewMode === "merchant" ? "var(--bg)" : "var(--fg)",
-            border: viewMode === "merchant" ? "1px solid var(--accent)" : "1px solid var(--border)",
-            borderRadius: "3px",
-            cursor: "pointer"
-          }}
+          className={viewMode === "merchant" ? "primary active" : "secondary"}
           onClick={() => setViewMode("merchant")}
         >
           Merchant Resolution Portal
@@ -382,7 +358,7 @@ export default function TransactionDetail() {
               <h2>Transaction Summary</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 20px", fontSize: "0.8rem" }}>
                 {[
-                  { label: "Amount", value: `${transaction.currency} ${transaction.amount.toLocaleString("en-IN")}`, mono: true, large: true },
+                  { label: "Amount", value: transaction ? `${transaction.currency} ${transaction.amount?.toLocaleString("en-IN") ?? "0"}` : "", mono: true, large: true },
                   { label: "Customer Account", value: transaction.user_id, mono: true },
                   { label: "Card Origin", value: transaction.card_country },
                   { label: "Billing Origin", value: transaction.billing_country },

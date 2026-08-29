@@ -1,9 +1,13 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, JSON
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database.session import Base
+
+try:
+    from sqlalchemy.dialects.postgresql import JSONB
+except ImportError:
+    JSONB = None  # type: ignore
 
 
 class AgentExecution(Base):
@@ -19,7 +23,7 @@ class AgentExecution(Base):
     evidence_retrieved = Column(Text, nullable=True) # Unified compiled evidence summary
     
     duration = Column(Float, default=0.0, nullable=False) # Processing duration in seconds
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     transaction = relationship("Transaction", back_populates="executions")
@@ -37,4 +41,4 @@ class AgentMemory(Base):
     evidence = Column(Text, nullable=True)
     confidence = Column(Float, default=100.0, nullable=False)
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

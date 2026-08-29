@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from app.database.session import Base
@@ -9,7 +9,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(String(50), unique=True, index=True, nullable=False)
+    transaction_id = Column(String(100), unique=True, index=True, nullable=False)
     user_id = Column(String(50), index=True, nullable=False)
     amount = Column(Float, nullable=False)
     currency = Column(String(10), nullable=False)
@@ -29,8 +29,8 @@ class Transaction(Base):
     status = Column(String(50), default="Pending", nullable=False)
     risk_score = Column(Float, default=0.0, nullable=False)
     
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     assessment = relationship("RiskAssessment", uselist=False, back_populates="transaction", cascade="all, delete-orphan")

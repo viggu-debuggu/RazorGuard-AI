@@ -4,5 +4,5 @@ testpaths = ["tests"]
 
 [tool.pyrefly]
 python-interpreter-path = "backend/.venv/Scripts/python.exe"
-search_path = ["backend"]
+search_path = [".", "backend"]
 

@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Tuple
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, List, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.models.transaction import Transaction
 from app.models.policy import PolicyChunk
 from app.ai.rag_service import hybrid_retrieve_policy_chunks
 from knowledge_graph.network_builder import PaymentNetworkGraph
-from ml.predict import predict_transaction_risk
 
 def submission_addresses_category(submission, category: str) -> bool:
     if not submission:
@@ -35,7 +34,7 @@ class TransactionRiskAgent:
     """Specialist evaluating immediate transaction features against core anti-fraud rules."""
     
     @staticmethod
-    def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
+    def process_task(db: Session, tx: Any) -> Dict[str, Any]:
         violations = []
         evidence_logs = []
         structured_evidences = []
@@ -116,7 +115,7 @@ class TransactionRiskAgent:
         
         return {
             "agent_name": "Transaction Risk Agent",
-            "score": float(rule_score),
+            "score": rule_score,
             "outcome": outcome,
             "evidence": evidence,
             "evidences": structured_evidences
@@ -127,13 +126,13 @@ class BehavioralRiskAgent:
     """Specialist evaluating card velocities, spending averages, and time-drift patterns."""
     
     @staticmethod
-    def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
+    def process_task(db: Session, tx: Any) -> Dict[str, Any]:
         violations = []
         evidence_logs = []
         structured_evidences = []
         
         # Rule 1: Instant velocity check in the last 1 hour
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
         recent_count = db.query(Transaction).filter(
             Transaction.user_id == tx.user_id,
             Transaction.timestamp >= one_hour_ago
@@ -219,7 +218,7 @@ class BehavioralRiskAgent:
             
         return {
             "agent_name": "Behavioral Risk Agent",
-            "score": float(behavioral_score),
+            "score": behavioral_score,
             "outcome": outcome,
             "evidence": evidence,
             "evidences": structured_evidences
@@ -230,7 +229,7 @@ class FraudInvestigationAgent:
     """Specialist performing graph walking across the payment graph database to uncover shared devices/IP loops."""
     
     @staticmethod
-    def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
+    def process_task(db: Session, tx: Any) -> Dict[str, Any]:
         # 1. Initialize network and build from current state of edges in DB
         graph = PaymentNetworkGraph()
         graph.build_from_db(db)
@@ -239,7 +238,7 @@ class FraudInvestigationAgent:
         graph.add_transaction_nodes_and_edges(tx)
         
         # 3. Walk relationships
-        degrees_of_sharing, shared_entities, paths = graph.walk_shared_relationships(tx.user_id, "User")
+        degrees_of_sharing, shared_entities, paths = graph.walk_shared_relationships(str(tx.user_id), "User")
         
         # Compute graph score: 33.3 per degree of sharing, capped at 100.0
         graph_score = min(100.0, degrees_of_sharing * 33.3)
@@ -250,14 +249,20 @@ class FraudInvestigationAgent:
             evidence = " | ".join(shared_entities)
             for path in paths:
                 cat = "device_relationship" if "Device" in path.get("type", "") else "account_relationship"
+                # Safely split path values — guard against None or missing ':'
+                node_raw = path.get("node") or ""
+                linked_raw = path.get("linked_account") or ""
+                node_label = node_raw.split(":", 1)[-1] if ":" in node_raw else node_raw
+                linked_label = linked_raw.split(":", 1)[-1] if ":" in linked_raw else linked_raw
+                path_type = path.get("type") or "entity"
                 structured_evidences.append({
                     "category": cat,
                     "severity": "high",
-                    "value": f"Shared {path.get('type')}: {path.get('node')}",
-                    "description": f"Customer account overlaps with user account '{path.get('linked_account').split(':', 1)[1]}' via shared {path.get('type').lower()} {path.get('node').split(':', 1)[1]}.",
+                    "value": f"Shared {path_type}: {node_raw}",
+                    "description": f"Customer account overlaps with user account '{linked_label}' via shared {path_type.lower()} {node_label}.",
                     "source": "Fraud Investigation Agent",
                     "confidence": 1.0,
-                    "supporting_entity": path.get("node", "")
+                    "supporting_entity": node_raw
                 })
         else:
             outcome = "Graph walking completed. Node is isolated from other registered entities."
@@ -287,7 +292,7 @@ class FraudInvestigationAgent:
             
         return {
             "agent_name": "Fraud Investigation Agent",
-            "score": float(graph_score),
+            "score": graph_score,
             "outcome": outcome,
             "evidence": evidence,
             "paths": paths,
@@ -299,7 +304,7 @@ class PolicyRAGAgent:
     """Specialist retrieving compliance policy vector chunks and mapping citations."""
     
     @staticmethod
-    def process_task(db: Session, tx: Transaction) -> Dict[str, Any]:
+    def process_task(db: Session, tx: Any) -> Dict[str, Any]:
         # Construct search query for RAG
         search_query = f"{tx.merchant_category} merchant categories card-not-present limitations and compliance verification"
         
@@ -313,7 +318,7 @@ class PolicyRAGAgent:
         
         if matching_chunks:
             for chunk, score in matching_chunks:
-                evidence_logs.append(chunk.content[:200] + "...")
+                evidence_logs.append(str(chunk.content)[:200] + "...")
                 citations.append(f"[Source: {chunk.filename}, Index: {chunk.chunk_index}]")
                 # If policy text contains risk keywords matching the current transaction's category
                 is_trigger = False
@@ -328,7 +333,7 @@ class PolicyRAGAgent:
                     "value": f"Similarity: {score:.1f}%",
                     "description": f"Retrieved compliance chunk: \"{chunk.content[:220]}...\"",
                     "source": "Policy Agent",
-                    "confidence": float(score / 100.0),
+                    "confidence": score / 100.0,
                     "policy_reference": f"policies/{chunk.filename}#chunk_{chunk.chunk_index}"
                 })
                         
@@ -363,7 +368,7 @@ class PolicyRAGAgent:
                 
         return {
             "agent_name": "Policy Agent",
-            "score": float(policy_score),
+            "score": policy_score,
             "outcome": outcome,
             "evidence": evidence,
             "citations": citations,
@@ -376,7 +381,7 @@ class DecisionAgent:
     
     @staticmethod
     def process_task(
-        db: Session, 
+        db: Optional[Session], 
         ml_score: float, 
         rule_score: float, 
         graph_score: float, 
@@ -409,7 +414,7 @@ class DecisionAgent:
         
         return {
             "agent_name": "Decision Agent",
-            "score": float(composite_score),
+            "score": composite_score,
             "classification": classification,
             "outcome": outcome,
             "evidence": evidence
@@ -420,7 +425,7 @@ class ActionAgent:
     """Specialist routing final status and initiating escalations or auto-approvals."""
     
     @staticmethod
-    def process_task(db: Session, tx: Transaction, classification: str, score: float) -> Dict[str, Any]:
+    def process_task(db: Session, tx: Any, classification: str, score: float) -> Dict[str, Any]:
         old_status = tx.status
         
         # Threshold Routing:
@@ -453,5 +458,6 @@ class ActionAgent:
             "action": action,
             "status": new_status,
             "outcome": outcome,
-            "evidence": explanation
+            "evidence": explanation,
+            "evidences": []  # ActionAgent does not produce structured evidence items
         }
