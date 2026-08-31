@@ -110,6 +110,11 @@ def run_rag_evaluation():
             "query": "compliance verification limits for crypto transaction of 30000 INR CNP",
             "expected_idx": 2,
             "description": "[TRICKY] Mentions crypto (grouped under electronics/crypto limits chunk) but amount is under 50k"
+        },
+        {
+            "query": "IRS tax withholding regulations and dividend capital gains tax reporting guidelines",
+            "expected_idx": -1,
+            "description": "[NEGATIVE] Completely unrelated query outside compliance corpus scope"
         }
     ]
     
@@ -125,6 +130,26 @@ def run_rag_evaluation():
         # Retrieve chunks (limit = 3)
         retrieved = hybrid_retrieve_policy_chunks(db, str(query), limit=3)
         
+        if expected_idx == -1:
+            # Negative test case: expected empty list due to similarity threshold
+            if len(retrieved) == 0:
+                hits_at_1 += 1
+                hits_at_3 += 1
+                mrr_sum += 1.0
+                print(f"Test Case {idx}: {case['description']}")
+                print(f"  Query: '{query}'")
+                print(f"  Expected: No Matching Policy (Fallback Graceful)")
+                print(f"  Matched Rank: None (SUCCESS)")
+                print(f"  Top Retrieved Chunk: None")
+            else:
+                print(f"Test Case {idx}: {case['description']}")
+                print(f"  Query: '{query}'")
+                print(f"  Expected: No Matching Policy (Fallback Graceful)")
+                print(f"  Matched Rank: Force-Matched {len(retrieved)} chunk(s) (FAILED)")
+                print(f"  Top Force-Matched Chunk: \"{retrieved[0][0].content[:70]}...\" (Score: {retrieved[0][1]:.1f}%)")
+            print("-" * 65)
+            continue
+
         # Evaluate
         found_rank = 0
         for rank, (chunk, _) in enumerate(retrieved, start=1):

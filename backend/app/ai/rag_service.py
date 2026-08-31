@@ -6,6 +6,12 @@ from app.ai.embeddings import generate_embedding
 from app.ai.vector_store import search_vector_store
 from app.core.logging import logger
 
+COMMON_RAG_STOPWORDS = {
+    "guidelines", "guideline", "regulation", "regulations", "reporting", 
+    "compliance", "policy", "policies", "rules", "rule", "requirement", 
+    "requirements", "check", "checks", "manual", "about", "would", "should", "could"
+}
+
 def perform_sparse_keyword_search(
     db: Session, 
     query: str, 
@@ -14,12 +20,8 @@ def perform_sparse_keyword_search(
     """Finds chunks matching terms using standard case-insensitive SQL ILIKE queries."""
     # Clean query into keywords
     words = re.sub(r"[^\w\s]", "", query.lower()).split()
-    keywords = [w for w in words if len(w) > 3] # Keep words longer than 3 characters
+    keywords = [w for w in words if len(w) > 3 and w not in COMMON_RAG_STOPWORDS]
     
-    if not keywords:
-        # Fallback to general split
-        keywords = words[:3]
-        
     if not keywords:
         return []
 
@@ -36,6 +38,8 @@ def perform_sparse_keyword_search(
     return []
 
 
+MIN_SIMILARITY_THRESHOLD = 0.50  # Require at least 50% semantic similarity to prevent force-matching irrelevant queries
+
 def hybrid_retrieve_policy_chunks(
     db: Session, 
     query: str, 
@@ -48,7 +52,9 @@ def hybrid_retrieve_policy_chunks(
     # 1. Dense retrieval (pgvector)
     try:
         query_vector = generate_embedding(query)
-        dense_results = search_vector_store(db, query_vector, limit=limit * 2)
+        raw_dense_results = search_vector_store(db, query_vector, limit=limit * 2)
+        # Filter out low-confidence dense force-matches below threshold
+        dense_results = [(chunk, sim) for chunk, sim in raw_dense_results if sim >= MIN_SIMILARITY_THRESHOLD]
     except Exception as e:
         logger.warning("RAG_DENSE_RETRIEVAL_FAILED: falling back to sparse keyword search only", error=str(e))
         dense_results = []

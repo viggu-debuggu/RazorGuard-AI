@@ -75,5 +75,12 @@ def test_demo_scenarios_explanation_actions(client, db_session):
         
         assert data["transaction"]["status"] == expected_status
         explanation = data["assessment"]["explanation"]
-        assert expected_action in explanation, f"Expected action '{expected_action}' not found in explanation for {tx_id}. Found: {explanation}"
+        
+        # Parse Recommended Action section using regex
+        import re
+        action_match = re.search(r"### Recommended Action\n([^\n]+)", explanation)
+        assert action_match is not None, f"Recommended Action section not found in explanation for {tx_id}."
+        parsed_action = action_match.group(1).strip()
+        assert parsed_action.startswith(expected_action), f"Expected action for {tx_id} to start with '{expected_action}', but parsed '{parsed_action}'."
+
 
