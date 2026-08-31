@@ -39,3 +39,20 @@ class Transaction(Base):
     evidences = relationship("Evidence", back_populates="transaction", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="transaction", cascade="all, delete-orphan")
     submissions = relationship("MerchantSubmission", back_populates="transaction", cascade="all, delete-orphan")
+
+    @property
+    def ml_score(self) -> float:
+        return self.assessment.ml_score if self.assessment else 0.0
+
+    @property
+    def rule_score(self) -> float:
+        return self.assessment.rule_score if self.assessment else 0.0
+
+    @property
+    def graph_score(self) -> float:
+        return self.assessment.graph_score if self.assessment else 0.0
+
+    @property
+    def policy_score(self) -> float:
+        return self.assessment.policy_score if self.assessment else 0.0
+

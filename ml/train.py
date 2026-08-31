@@ -91,17 +91,68 @@ class NearestCentroidClassifier:
 
 
 if __name__ == "__main__":
+    import random
     print("Starting Nearest Centroid model training pipeline...")
     dataset, bounds = prepare_dataset()
     
-    model = NearestCentroidClassifier()
-    model.fit(dataset, bounds)
+    # Set seed for reproducible splitting
+    random.seed(42)
+    shuffled = list(dataset)
+    random.shuffle(shuffled)
     
-    accuracy = model.evaluate(dataset)
-    print("SUCCESS: Model training completed.")
+    # 75/25 Train/Test split
+    split_idx = int(len(shuffled) * 0.75)
+    train_data = shuffled[:split_idx]
+    test_data = shuffled[split_idx:]
+    
+    print(f"Total entries: {len(shuffled)} | Train size: {len(train_data)} | Test size: {len(test_data)}")
+    
+    # Train model on training split
+    model = NearestCentroidClassifier()
+    model.fit(train_data, bounds)
+    
+    # Evaluate on training split
+    train_accuracy = model.evaluate(train_data)
+    
+    # Evaluate on test split
+    y_true = [entry["status"] for entry in test_data]
+    y_pred = []
+    for entry in test_data:
+        pred_status, _ = model.predict(entry["features"])
+        y_pred.append(pred_status)
+        
+    correct = sum(1 for t, p in zip(y_true, y_pred) if t == p)
+    test_accuracy = correct / len(test_data) if test_data else 0.0
+    
+    # Compute Precision, Recall, F1 for each class
+    classes = ["Safe", "Suspicious", "High Risk"]
+    metrics = {}
+    for cls in classes:
+        tp = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p == cls)
+        fp = sum(1 for t, p in zip(y_true, y_pred) if t != cls and p == cls)
+        fn = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p != cls)
+        
+        prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        support = sum(1 for t in y_true if t == cls)
+        
+        metrics[cls] = {"precision": prec, "recall": rec, "f1": f1, "support": support}
+        
+    print("\nSUCCESS: Model training completed.")
     print(f"Calculated Centroids: {model.centroids}")
-    print(f"Training Accuracy: {accuracy * 100:.1f}%")
+    print(f"Training Accuracy: {train_accuracy * 100:.1f}%")
+    print(f"Test Accuracy:     {test_accuracy * 100:.1f}%\n")
+    
+    print("---------------------------------------------------------------")
+    print(f"{'Class':<12} | {'Precision':<10} | {'Recall':<10} | {'F1-Score':<10} | {'Support':<8}")
+    print("---------------------------------------------------------------")
+    for cls in classes:
+        m = metrics[cls]
+        print(f"{cls:<12} | {m['precision']:<10.3f} | {m['recall']:<10.3f} | {m['f1']:<10.3f} | {m['support']:<8}")
+    print("---------------------------------------------------------------")
     
     export_path = "./ml/models/transaction_classifier.json"
     model.export_model(export_path)
-    print(f"SUCCESS: Model parameters exported to: {export_path}")
+    print(f"\nSUCCESS: Model parameters exported to: {export_path}")
+

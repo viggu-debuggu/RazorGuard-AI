@@ -28,6 +28,8 @@ High-throughput payment gateways face severe challenges in risk analysis: simple
 
 ## Architecture Overview
 
+![System Architecture](docs/screenshots/architecture.jpg)
+
 ```
 Ingested Payment Event
       │

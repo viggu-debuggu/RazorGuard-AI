@@ -61,7 +61,7 @@ class PaymentNetworkGraph:
 
     def walk_shared_relationships(self, start_node_id: str, start_node_type: str = "User") -> Tuple[int, List[str], List[Dict[str, Any]]]:
         """
-        Walks the graph to find relational overlaps:
+        Walks the graph to find relational overlaps using a cycle-safe, hop-limited BFS traversal:
         1. Device sharing: Distinct accounts sharing hardware.
         2. IP sharing: Distinct accounts sharing IP addresses.
         Returns: Tuple of (degrees_of_sharing: int, shared_entities: list[str], paths: list[dict])
@@ -74,52 +74,64 @@ class PaymentNetworkGraph:
         shared_entities: List[str] = []
         paths_evidence: List[Dict[str, Any]] = []
 
-        # Find devices associated with the start user
-        # User -> Transaction -> Device
-        user_txs = [t for s, t, data in self.G.out_edges(start, data=True) if data.get("relation") == "INITIATED"]
+        # BFS queue elements: (current_node, path_history)
+        # Hop limit: max 4 hops (User -> Tx -> Dev/IP -> Tx -> User)
+        queue = [(start, [start])]
         
-        devices: Set[str] = set()
-        ips: Set[str] = set()
-        
-        for tx in user_txs:
-            for _, tgt, data in self.G.out_edges(tx, data=True):
-                if data.get("relation") == "FROM_DEVICE":
-                    devices.add(tgt)
-                elif data.get("relation") == "FROM_IP":
-                    ips.add(tgt)
-
-        # Tracing device overlap (via transaction relationships)
-        for dev in devices:
-            # Device <- Transaction (incoming edge)
-            in_edges = self.G.in_edges(dev, data=True)
-            for src_tx, _, data in in_edges:
-                if data.get("relation") == "FROM_DEVICE":
-                    # Transaction <- User (incoming edge)
-                    tx_in_edges = self.G.in_edges(src_tx, data=True)
-                    for other_user, _, tx_data in tx_in_edges:
-                        if tx_data.get("relation") == "INITIATED" and other_user != start:
+        while queue:
+            node, path = queue.pop(0)
+            hops = len(path) - 1
+            
+            # Stop if we exceeded the 4-hop limit
+            if hops >= 4:
+                continue
+                
+            # Hop 1: User -> Transaction (outgoing edge, relation INITIATED)
+            if hops == 0:
+                for _, target, data in self.G.out_edges(node, data=True):
+                    if data.get("relation") == "INITIATED" and target not in path:
+                        queue.append((target, path + [target]))
+                        
+            # Hop 2: Transaction -> Device / IP (outgoing edge, relation FROM_DEVICE / FROM_IP)
+            elif hops == 1:
+                for _, target, data in self.G.out_edges(node, data=True):
+                    rel = data.get("relation")
+                    if rel in ["FROM_DEVICE", "FROM_IP"] and target not in path:
+                        queue.append((target, path + [target]))
+                        
+            # Hop 3: Device / IP -> Transaction (incoming edge to Device / IP, relation FROM_DEVICE / FROM_IP)
+            elif hops == 2:
+                for src, _, data in self.G.in_edges(node, data=True):
+                    rel = data.get("relation")
+                    is_valid = False
+                    if "Device:" in node and rel == "FROM_DEVICE":
+                        is_valid = True
+                    elif "IP:" in node and rel == "FROM_IP":
+                        is_valid = True
+                        
+                    if is_valid and src not in path:
+                        queue.append((src, path + [src]))
+                        
+            # Hop 4: Transaction -> other User (incoming edge to Transaction, relation INITIATED)
+            elif hops == 3:
+                for src, _, data in self.G.in_edges(node, data=True):
+                    if data.get("relation") == "INITIATED":
+                        other_user = src
+                        if other_user != start:
                             shared_users.add(other_user)
-                            shared_entities.append(f"Device overlapping: {dev.split(':', 1)[1]} shared with {other_user.split(':', 1)[1]}")
+                            matched_entity = path[2]
+                            entity_name = matched_entity.split(":", 1)[1]
+                            entity_type = "Device" if "Device:" in matched_entity else "IP"
+                            
+                            log_msg = f"{entity_type} overlapping: {entity_name} shared with {other_user.split(':', 1)[1]}"
+                            if log_msg not in shared_entities:
+                                shared_entities.append(log_msg)
+                                
                             paths_evidence.append({
-                                "type": "Device Overlap",
-                                "node": dev,
-                                "linked_account": other_user
-                            })
-
-        # Tracing IP overlap
-        for ip in ips:
-            in_edges = self.G.in_edges(ip, data=True)
-            for src_tx, _, data in in_edges:
-                if data.get("relation") == "FROM_IP":
-                    tx_in_edges = self.G.in_edges(src_tx, data=True)
-                    for other_user, _, tx_data in tx_in_edges:
-                        if tx_data.get("relation") == "INITIATED" and other_user != start:
-                            shared_users.add(other_user)
-                            shared_entities.append(f"IP overlapping: {ip.split(':', 1)[1]} shared with {other_user.split(':', 1)[1]}")
-                            paths_evidence.append({
-                                "type": "IP Overlap",
-                                "node": ip,
+                                "type": f"{entity_type} Overlap",
+                                "node": matched_entity,
                                 "linked_account": other_user
                             })
 
         return len(shared_users), shared_entities, paths_evidence
+

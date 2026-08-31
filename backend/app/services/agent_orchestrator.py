@@ -1,7 +1,8 @@
 import time
 import json
+import re
 from datetime import datetime, timezone, timedelta
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, cast
 from sqlalchemy.orm import Session
 from app.models.transaction import Transaction
 from app.models.risk_assessment import RiskAssessment
@@ -20,6 +21,41 @@ from app.services.agent_team import (
 from app.ai.llm_service import LLMService
 from app.core.logging import logger
 from ml.predict import predict_transaction_risk
+
+def verify_explanation_citations(explanation: str, policy_evidences: List[Dict[str, Any]]) -> List[str]:
+    """
+    Extracts all compliance citations from the explanation and checks them against the retrieved chunks.
+    Returns: List of hallucinated citation strings.
+    """
+    if not explanation:
+        return []
+        
+    # Pattern 1: policies/filename#chunk_index
+    pattern_ref = r"policies/([\w\-\.]+)\#chunk_(\d+)"
+    # Pattern 2: [Source: filename, Index: index]
+    pattern_src = r"\[Source:\s*([\w\-\.]+),\s*Index:\s*(\d+)\]"
+    
+    citations = []
+    for filename, chunk_idx in re.findall(pattern_ref, explanation):
+        citations.append((filename, int(chunk_idx)))
+    for filename, chunk_idx in re.findall(pattern_src, explanation):
+        citations.append((filename, int(chunk_idx)))
+        
+    retrieved_refs = set()
+    for ev in policy_evidences:
+        ref = ev.get("policy_reference")
+        if ref:
+            m = re.match(pattern_ref, ref)
+            if m:
+                retrieved_refs.add((m.group(1), int(m.group(2))))
+                
+    hallucinated = []
+    for filename, chunk_idx in citations:
+        if (filename, chunk_idx) not in retrieved_refs:
+            hallucinated.append(f"policies/{filename}#chunk_{chunk_idx}")
+            
+    return hallucinated
+
 
 class AgentOrchestrator:
     """Orchestrates collaborative risk analysis, collects evidence, computes scores, and synthesizes explanation."""
@@ -88,7 +124,7 @@ class AgentOrchestrator:
 
         # Predict status and baseline ML score
         ml_class, ml_score = predict_transaction_risk(
-            amount=tx.amount,
+            amount=cast(float, tx.amount),
             location_drift=location_drift,
             velocity_1h_including_current=velocity_1h_including_current,
             device_score=device_score
@@ -259,6 +295,14 @@ class AgentOrchestrator:
         
         evidence_text = "\n".join(evidence_lines) if evidence_lines else "No suspicious evidence detected."
 
+        # Determine target action based on classification/decision
+        if classification == "High Risk":
+            rec_action = "ESCALATE (Suspends transaction state pending manual review)"
+        elif classification == "Suspicious":
+            rec_action = "MONITOR (Permits processing but enqueues review alert)"
+        else:
+            rec_action = "APPROVE (Automatic approval processed)"
+
         llm_prompt = (
             f"Please synthesize a detailed payment risk briefing explanation.\n"
             f"Transaction ID: {tx.transaction_id}\n"
@@ -267,7 +311,8 @@ class AgentOrchestrator:
             f"Card Present: {tx.card_present}\n"
             f"Billing Country: {tx.billing_country} | Card Country: {tx.card_country}\n"
             f"Calculated Score: {overall_score:.1f}%\n"
-            f"Risk Classification: {classification}\n\n"
+            f"Risk Classification: {classification}\n"
+            f"Action Recommendation: {rec_action}\n\n"
             f"Agent Inputs:\n"
             f"- Transaction Rules: {tx_res['evidence']}\n"
             f"- Behavior History: {beh_res['evidence']}\n"
@@ -287,6 +332,24 @@ class AgentOrchestrator:
         )
         
         explanation_markdown = LLMService.generate_response(llm_prompt, system_prompt)
+        
+        # Validate citations to prevent LLM hallucinations
+        policy_evidences = [ev for ev in all_structured_evidences if ev.get("policy_reference")]
+        hallucinations = verify_explanation_citations(explanation_markdown, policy_evidences)
+        if hallucinations:
+            logger.warning(
+                "EXPLAINABILITY_WARNING: LLM generated hallucinated citations",
+                transaction_id=tx.transaction_id,
+                hallucinated_references=hallucinations
+            )
+            # Append an explainability notice warning analysts of potential hallucinations
+            warning_note = (
+                "\n\n---\n> [!WARNING]\n"
+                "> **Explainability Notice**: The consensus engine detected the following policy citations in this "
+                "briefing that do not match the compliance chunks retrieved from RAG: "
+                f"{', '.join(hallucinations)}. Please cross-verify this explanation."
+            )
+            explanation_markdown += warning_note
         
         # 11. Persist Risk Assessment
         db.query(RiskAssessment).filter(RiskAssessment.transaction_id == tx.id).delete(synchronize_session=False)

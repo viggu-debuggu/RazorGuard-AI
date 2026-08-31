@@ -1,3 +1,5 @@
+import os
+import json
 from typing import List, Dict, Any, Tuple
 
 # Mock synthetic transaction telemetry data for training the Centroid Classifier
@@ -19,6 +21,18 @@ MOCK_RAW_TRANSACTIONS = [
     {"amount": 180000.0, "location_drift": 1500.0, "velocity_1h_including_current": 10, "device_score": 0.9, "status": "High Risk"},
 ]
 
+def load_transactions_dataset() -> List[Dict[str, Any]]:
+    """Loads transactions from the synthetic dataset in data/, falling back to inline mock data."""
+    # Resolve path relative to this file
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    json_path = os.path.join(base_dir, "data", "synthetic_transactions.json")
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return MOCK_RAW_TRANSACTIONS
 
 def clean_outliers(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Filters transactions with negative values or extreme anomalies."""
@@ -72,10 +86,12 @@ def normalize_features(
 
 def prepare_dataset() -> Tuple[List[Dict[str, Any]], Dict[str, Tuple[float, float]]]:
     """Cleans and normalizes the mock payment transaction dataset."""
-    cleaned = clean_outliers(MOCK_RAW_TRANSACTIONS)
+    raw_data = load_transactions_dataset()
+    cleaned = clean_outliers(raw_data)
     bounds = get_normalization_bounds(cleaned)
     dataset = normalize_features(cleaned, bounds)
     return dataset, bounds
+
 
 
 if __name__ == "__main__":

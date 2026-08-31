@@ -72,7 +72,7 @@ def _generate_mock_explanation(prompt: str) -> str:
     score_match = re.search(r"Calculated Score:\s*([\d\.]+)%", prompt, re.IGNORECASE)
     score = score_match.group(1) if score_match else "0.0"
     
-    class_match = re.search(r"Risk Classification:\s*([a-zA-Z\s]+)", prompt, re.IGNORECASE)
+    class_match = re.search(r"Risk Classification:\s*([^\n]+)", prompt, re.IGNORECASE)
     classification = class_match.group(1).strip() if class_match else "Safe"
     
     # Extract agent evidence inputs
@@ -96,6 +96,19 @@ def _generate_mock_explanation(prompt: str) -> str:
     if policy_evidence_match:
         policy_evidence = policy_evidence_match.group(1).strip()
 
+    # Parse Action Recommendation directly from prompt if available
+    action_match = re.search(r"Action Recommendation:\s*([^\n]+)", prompt, re.IGNORECASE)
+    if action_match:
+        action = action_match.group(1).strip()
+    else:
+        # Fallback to local parsing logic if not present in prompt
+        if classification == "High Risk":
+            action = "ESCALATE (Suspends transaction state pending manual review)"
+        elif classification == "Suspicious":
+            action = "MONITOR (Permits processing but enqueues review alert)"
+        else:
+            action = "APPROVE (Automatic approval processed)"
+
     # Parse Structured Evidence lines
     evidence_lines = []
     structured_match = re.search(r"Structured Evidence:\n(.*)", prompt, re.DOTALL)
@@ -110,6 +123,9 @@ def _generate_mock_explanation(prompt: str) -> str:
                     # Skip generic ML model signal representation in details to focus on rules/graph/RAG
                     if "baseline risk score of" in desc_val:
                         continue
+                    # Skip compliance policy chunks to prevent duplication (they go to Policy Evidence)
+                    if "Retrieved compliance chunk:" in desc_val:
+                        continue
                     evidence_lines.append(desc_val)
 
     if evidence_lines:
@@ -121,14 +137,6 @@ def _generate_mock_explanation(prompt: str) -> str:
             f"- **Behavioral History:** {behavior_history}\n"
             f"- **Network Relationships:** {network_graph}"
         )
-
-    # Determine recommended action based on classification
-    if classification == "High Risk":
-        action = "ESCALATE (Suspends transaction state pending manual review)"
-    elif classification == "Suspicious":
-        action = "MONITOR (Permits processing but enqueues review alert)"
-    else:
-        action = "APPROVE (Automatic approval processed)"
 
     # 2. Build structured markdown briefing
     return (
@@ -142,4 +150,5 @@ def _generate_mock_explanation(prompt: str) -> str:
         f"### Recommended Action\n"
         f"{action}"
     )
+
 

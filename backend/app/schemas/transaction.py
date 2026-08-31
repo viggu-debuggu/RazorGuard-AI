@@ -55,8 +55,15 @@ class TransactionOut(BaseModel):
     status: str
     risk_score: float
     timestamp: datetime
+    
+    # Exposing the subscores
+    ml_score: float = 0.0
+    rule_score: float = 0.0
+    graph_score: float = 0.0
+    policy_score: float = 0.0
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class RiskAssessmentOut(BaseModel):
     overall_score: float
