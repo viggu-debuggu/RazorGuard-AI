@@ -5,7 +5,17 @@
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Node Version](https://img.shields.io/badge/node-20+-green.svg)](https://nodejs.org/)
 
-High-throughput payment gateways face severe challenges in risk analysis: simple heuristic rules miss complex relational fraud rings, while running Large Language Models (LLMs) directly for transaction risk prediction is too slow, expensive, and non-deterministic. Furthermore, traditional machine learning models output scores without explaining *why* a payment was flagged or which compliance rules were violated, forcing operations analysts to manually parse fragmented records. RazorGuard AI solves this by separating deterministic risk scoring from natural-language explanation, using specialized agents to flag anomalies and a retrieval-augmented LLM to synthesize readable, audit-ready compliance briefings.
+High-throughput payment gateways lose millions to fraudulent transactions every year, yet risk operations teams are overwhelmed by high false-positive alert rates. Traditional machine learning and static rule engines flag suspicious transactions as raw risk scores without explaining *why* a payment was flagged or which compliance rules were violated. This forces fraud analysts to waste critical minutes manually digging through fragmented logs, historical records, and policy manuals for every escalated payment. RazorGuard AI solves this by separating deterministic risk scoring from natural-language explanation, combining multi-signal anomaly detection with an evidence-grounded AI agent that generates audit-ready compliance briefings.
+
+
+
+## 💡 Business Impact & Value for Risk Operations
+
+RazorGuard AI translates complex multi-layered data into clear operational outcomes for payment providers like Razorpay:
+
+* **Accelerated Analyst Review Time**: Instead of requiring human analysts to manually inspect device logs, IP histories, database records, and regulatory manuals across multiple tools, RazorGuard AI automatically aggregates evidence into structured markdown briefings. By delivering grounded key factors alongside exact policy citations upfront, analyst investigation times are drastically reduced. *(Note: Review time acceleration metrics are illustrative estimates based on prototype workflow streamlining, not live production benchmarks).*
+* **Reduced False-Positive Escalations**: Single-signal rule triggers (such as flagging every high-value or out-of-country transaction) flood operations queues with legitimate payments. RazorGuard AI fuses four distinct signals—Nearest Centroid ML anomaly detection, behavioral velocity rules, NetworkX graph relationship walks, and RAG policy matching—to filter out false alarms and only escalate multi-factor risk anomalies.
+* **Auditability & Regulatory Defense**: Regulatory compliance mandates that risk management decisions must be transparent, reproducible, and explainable. RazorGuard AI guarantees mathematical determinism for scoring ($0.35 \times \text{ML} + 0.20 \times \text{Rules} + 0.30 \times \text{Graph} + 0.15 \times \text{Policy}$) and pairs every score with exact RRF-retrieved policy chunk citations (`pgvector` / SQLite RAG) and immutable analyst override audit logs.
 
 ---
 
@@ -85,6 +95,9 @@ The system triggers six specialized agents during ingestion:
 ---
 
 ## Quick Start (Docker Deployment)
+
+> [!NOTE]
+> **Honest Disclosure**: `LLM_PROVIDER` defaults to a mock explanation generator using real retrieved evidence (deterministic, not templated) — a live Gemini key is a one-line env var swap, planned but not yet demoed live.
 
 To spin up the entire cluster (PostgreSQL + pgvector, Backend, Frontend) and seed the scenarios:
 
@@ -166,7 +179,7 @@ For a detailed derivation breakdown, logic behind averaged weights, mathematical
 
 - **Card-Node Identity**: Card nodes in [`knowledge_graph/network_builder.py:L31`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/knowledge_graph/network_builder.py#L31) are represented as `Card:{billing_country}_{card_country}`. While sufficient for synthetic demo data, in a production setting this collapses distinct cards from the same country pairs and would be replaced with unique card tokens or card number hashes.
 - **Model Scale Limits**: The Nearest Centroid Classifier in [`ml/predict.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/ml/predict.py) is trained on a small, mock synthetic dataset in [`ml/train.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/ml/train.py) to keep execution deterministic. It has not been backtested or optimized for high-throughput production data scales.
-- **Seeded Credentials**: The login credentials for risk analysts are stored as plaintext values in [`scripts/seed_data.py:L351-L360`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/scripts/seed_data.py#L351-L360) for judge convenience and seeder simplicity. Production deployments would rely on secure external identity providers (IdPs) or single sign-on (SSO) integrations.
+
 
 ---
 
