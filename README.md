@@ -28,17 +28,36 @@ RazorGuard AI translates complex multi-layered data into clear operational outco
 
 ---
 
-## Screenshots
+## 📸 Platform Screenshots
 
-- ![Analyst Dashboard](docs/screenshots/dashboard.png) — the main dashboard with the KPI panel visible
-- ![Relationship Graph](docs/screenshots/graph.png) — the force-directed graph with a node selected and neighbors highlighted
-- ![Escalated Transaction Review](docs/screenshots/investigation.png) — the transaction detail/investigation view
+<div align="center">
+
+| **Analyst Operations Dashboard** | **Force-Directed Relational Graph** |
+| :---: | :---: |
+| <img src="docs/screenshots/dashboard.png" alt="Analyst Dashboard" width="100%" /> | <img src="docs/screenshots/graph.png" alt="Relationship Graph" width="100%" /> |
+| *Real-time KPI overview, multi-factor risk scores, and transaction feed* | *Interactive entity linkage mapping shared devices & fraud rings* |
+
+<br />
+
+| **Escalated Transaction & Compliance RAG Review** |
+| :---: |
+| <img src="docs/screenshots/investigation.png" alt="Escalated Transaction Review" width="100%" /> |
+| *Evidence-grounded multi-agent briefing, policy chunk citations, and human analyst override controls* |
+
+</div>
 
 ---
 
-## Architecture Overview
+## 🏗️ Architecture Overview
 
-![System Architecture](docs/screenshots/architecture.jpg)
+<div align="center">
+  <img src="docs/screenshots/architecture.jpg" alt="RazorGuard AI System Architecture" width="85%" />
+</div>
+
+<br />
+
+<details>
+<summary><b>🔍 View Detailed Dataflow Diagram (ASCII)</b></summary>
 
 ```
 Ingested Payment Event
@@ -83,6 +102,8 @@ Ingested Payment Event
                  Risk Operations Dashboard
                  (Human Analyst Override)
 ```
+
+</details>
 
 The system triggers six specialized agents during ingestion:
 1. **Transaction Risk Agent:** Evaluates immediate properties (amount, card-present status, billing country vs card country).
