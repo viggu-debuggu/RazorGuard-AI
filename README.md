@@ -21,10 +21,10 @@ RazorGuard AI translates complex multi-layered data into clear operational outco
 
 ## Why This Matters for Razorpay's Risk Operations
 
-- **KYC & Onboarding Compliance monitoring needs explainable analytics, not black-box risk scores.** RazorGuard AI computes a composite score and maps structured findings directly to database evidence records: [`backend/app/services/agent_team.py:L351-L368`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_team.py#L351-L368) runs a consensus rules model, which [`backend/app/services/agent_orchestrator.py:L236-L252`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_orchestrator.py#L236-L252) maps to structured database evidence. This gives risk managers absolute visibility into the scoring criteria for onboarding audits.
+- **KYC & Onboarding Compliance monitoring needs explainable analytics, not black-box risk scores.** RazorGuard AI computes a composite score and maps structured findings directly to database evidence records: [`backend/app/services/agent_team.py:L380-L421`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_team.py#L380-L421) runs a consensus rules model, which [`backend/app/services/agent_orchestrator.py:L247-L288`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_orchestrator.py#L247-L288) maps to structured database evidence. This gives risk managers absolute visibility into the scoring criteria for onboarding audits.
 - **Cross-account fraud rings sharing devices/cards need relationship analysis, not just isolated per-transaction scoring.** Our NetworkX graph walk solves this: [`backend/app/services/agent_team.py:L229-L265`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_team.py#L229-L265) executes topological walks on the relational graph built in [`knowledge_graph/network_builder.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/knowledge_graph/network_builder.py) to flag accounts linked through shared hardware fingerprints or network nodes, exposing card-testing networks instantly.
 - **Fraud incident reports for regulators need traceable, reproducible decisions.** Our determinism guarantee (validated in [`tests/test_deterministic_scoring_validation.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/tests/test_deterministic_scoring_validation.py)) and pgvector hybrid RAG citations resolve this: regulatory chunks are queried in [`backend/app/ai/vector_store.py`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/ai/vector_store.py) and cited directly down to the source file name and chunk index. This makes audit traces fully transparent and reproducible.
-- **Analyst override decisions need a defensible audit trail.** Our override endpoint solves this: [`backend/app/api/endpoints/transactions.py:L461-L508`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/api/endpoints/transactions.py#L461-L508) locks in analyst notes, custom justification text, exact database timestamps, and actor identifiers inside immutable audit logs. This provides legally defensive compliance records.
+- **Analyst override decisions need a defensible audit trail.** Our override endpoint solves this: [`backend/app/api/endpoints/transactions.py:L368-L452`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/api/endpoints/transactions.py#L368-L452) locks in analyst notes, custom justification text, exact database timestamps, and actor identifiers inside immutable audit logs. This provides legally defensive compliance records.
 
 ---
 
@@ -123,6 +123,9 @@ docker compose exec backend python scripts/seed_data.py
 ## Evaluation Results
 
 Run `python scripts/evaluate.py` from the repo root to reproduce these numbers.
+
+> [!NOTE]
+> **Honest Disclosure on Synthetic Evaluation**: The 1.000 (100%) precision/recall/F1 metrics below are measured on a synthetic baseline dataset of 200 transactions where feature boundaries between classes are cleanly separated (e.g. Safe amounts: INR 300–7,650 vs Suspicious: INR 45K–95K vs High Risk: INR 180K–490K; Velocity: 1–2 vs 3–5 vs 6–10; Device score: 0.05–0.19 vs 0.40–0.65 vs 0.75–0.95 with zero boundary overlap). This demonstrates mathematical determinism and correct rule mapping of the nearest-centroid scoring logic on a synthetic benchmark, rather than a generalized real-world model accuracy claim.
 
 | Class | Precision | Recall | F1 |
 |---|---|---|---|
