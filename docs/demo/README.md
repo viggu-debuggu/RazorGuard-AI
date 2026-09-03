@@ -24,9 +24,11 @@ See the full step-by-step guide in [RECORDING_GUIDE.md](RECORDING_GUIDE.md).
 
 _Place exported screenshots here:_
 
-- `docs/screenshots/dashboard.png` — dashboard with real-time KPI overview and escalation queue
-- `docs/screenshots/queue.png` — investigation queue with multi-status filtering and risk thresholds
-- `docs/screenshots/graph.png` — force-directed relationship map and device overlap clustering
-- `docs/screenshots/investigation.png` — analyst console with multi-agent evidence breakdown and RAG proofs
-- `docs/screenshots/merchant_portal.png` — merchant resolution portal with hold reasons and verification upload
+- `docs/screenshots/razorguard_dashboard.png` — dashboard with real-time KPI overview and escalation queue
+- `docs/screenshots/razorguard_queue.png` — investigation queue with multi-status filtering and risk thresholds
+- `docs/screenshots/razorguard_graph.png` — force-directed relationship map and device overlap clustering
+- `docs/screenshots/razorguard_investigation.png` — analyst console with multi-agent evidence breakdown and RAG proofs
+- `docs/screenshots/razorguard_merchant_portal.png` — merchant resolution portal with hold reasons and verification upload
+- `docs/screenshots/razorguard_policies.png` — compliance policy vault with semantic vector search and chunk citations
+
 

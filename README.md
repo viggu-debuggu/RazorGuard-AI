@@ -34,22 +34,22 @@ RazorGuard AI translates complex multi-layered data into clear operational outco
 
 | **Analyst Operations Dashboard** | **Investigation Queue & Filtering** |
 | :---: | :---: |
-| <img src="docs/screenshots/dashboard.png" alt="Analyst Dashboard" width="100%" /> | <img src="docs/screenshots/queue.png" alt="Investigation Queue" width="100%" /> |
+| <img src="docs/screenshots/razorguard_dashboard.png" alt="Analyst Dashboard" width="100%" /> | <img src="docs/screenshots/razorguard_queue.png" alt="Investigation Queue" width="100%" /> |
 | *Real-time KPI overview, risk telemetry, volume vs risk event trends, and active escalation queue* | *Multi-status filtering, risk score thresholds, and transaction feed* |
 
 <br />
 
 | **Force-Directed Relationship Map** | **Analyst Deep Investigation Console** |
 | :---: | :---: |
-| <img src="docs/screenshots/graph.png" alt="Relationship Map" width="100%" /> | <img src="docs/screenshots/investigation.png" alt="Analyst Investigation Console" width="100%" /> |
+| <img src="docs/screenshots/razorguard_graph.png" alt="Relationship Map" width="100%" /> | <img src="docs/screenshots/razorguard_investigation.png" alt="Analyst Investigation Console" width="100%" /> |
 | *Interactive entity linkage mapping shared devices, IPs, and fraud rings* | *Multi-agent evidence breakdown, compliance policy proofs, and human analyst override controls* |
 
 <br />
 
-| **Merchant Resolution Portal** |
-| :---: |
-| <img src="docs/screenshots/merchant_portal.png" alt="Merchant Resolution Portal" width="100%" /> |
-| *Transparent hold explanations, compliance resolution checklist, and merchant verification submission* |
+| **Merchant Resolution Portal** | **Compliance Policy Vault (Hybrid RAG)** |
+| :---: | :---: |
+| <img src="docs/screenshots/razorguard_merchant_portal.png" alt="Merchant Resolution Portal" width="100%" /> | <img src="docs/screenshots/razorguard_policies.png" alt="Compliance Policy Vault" width="100%" /> |
+| *Transparent hold explanations, resolution checklist, and merchant document upload* | *Indexed regulatory manuals, semantic vector search, and chunk citations* |
 
 </div>
 
