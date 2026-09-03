@@ -1,4 +1,4 @@
-# 🛡️ RazorGuard AI — Payment Risk Investigation & Decision Support
+#  RazorGuard AI — Payment Risk Investigation & Decision Support
 
 [![CI](https://github.com/viggu-debuggu/RazorGuard-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/viggu-debuggu/RazorGuard-AI/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -250,6 +250,9 @@ Three reasons drove this choice. First, **interpretability**: Nearest Centroid p
 - **RAG for Policy Grounding:** Storing manuals in RAG instead of hardcoding prompt instructions prevents context window bloat and allows updating manuals without code changes.
 
 ---
+## 🎥 Demo Video
+
+[▶️ Watch RazorGuard AI Demo Video](https://drive.google.com/file/d/12lHMP8zfNMF6V7bQ3fccsFV0qTci5Lm_/view?usp=sharing)
 
 ## License
 
