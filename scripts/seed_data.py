@@ -22,6 +22,10 @@ from app.ai.embeddings import generate_embedding
 from app.ai.vector_store import save_policy_chunk
 from app.services.agent_orchestrator import AgentOrchestrator
 
+# Demo-only placeholder analyst credentials (not for production use)
+DEMO_ANALYST_EMAIL = "analyst@razorguard.ai"
+DEMO_ANALYST_PASSWORD = os.getenv("DEMO_ANALYST_PASSWORD", "demo_placeholder_analyst_2026")
+
 # Regulatory compliance manuals to seed
 POLICY_DOCUMENTS = [
     {
@@ -352,8 +356,8 @@ def seed_database():
         db.commit()
         
         # 2. Seed default Analyst user
-        analyst_email = "analyst@razorguard.ai"
-        hashed_pw = get_password_hash("password")
+        analyst_email = DEMO_ANALYST_EMAIL
+        hashed_pw = get_password_hash(DEMO_ANALYST_PASSWORD)
         user = User(
             email=analyst_email,
             full_name="Alex Mercer",
@@ -362,7 +366,7 @@ def seed_database():
             is_active=True
         )
         db.add(user)
-        print(f"Seeded default user: {analyst_email} / password")
+        print(f"Seeded default user: {analyst_email} / {DEMO_ANALYST_PASSWORD} (demo placeholder)")
             
         # 3. Seed transactions
         for tx_data in MOCK_TRANSACTIONS:

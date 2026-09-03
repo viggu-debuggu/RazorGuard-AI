@@ -1,4 +1,5 @@
 import pytest
+import os
 from app.services.agent_orchestrator import verify_explanation_citations
 
 
@@ -51,9 +52,10 @@ def test_demo_scenarios_explanation_actions(client, db_session):
     seed_database()
 
     # Login analyst
+    demo_password = os.getenv("DEMO_ANALYST_PASSWORD", "demo_placeholder_analyst_2026")
     log_res = client.post("/api/v1/auth/login", json={
         "email": "analyst@razorguard.ai",
-        "password": "password"
+        "password": demo_password
     })
     token = log_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}

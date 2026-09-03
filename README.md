@@ -122,6 +122,14 @@ The system triggers six specialized agents during ingestion:
 
 ---
 
+## 7. RAG (Retrieval-Augmented Generation)
+
+Compliance document policies are chunked using sliding windows and stored in PostgreSQL using the `pgvector` extension. The policy documents in `/rag` and seeded compliance manuals are modeled after **EU PSD2 Article 97 Strong Customer Authentication (SCA)** mandates and **Card-Not-Present (CNP) remote payment high-ticket transaction processing guidelines**.
+- **Hybrid Retrieval:** Blends dense vector search (using `all-MiniLM-L6-v2` embeddings) with sparse keyword queries using Reciprocal Rank Fusion (RRF).
+- **Grounding Citations:** Each retrieved chunk is referenced in the explanation briefing with its source file and index, preventing the LLM from inventing policies.
+
+---
+
 ## Quick Start (Docker Deployment)
 
 > [!NOTE]
@@ -139,12 +147,12 @@ cp .env.example .env
 docker compose up -d --build
 
 # Step 3: Run the database seeder inside the backend container
-docker compose exec backend python scripts/seed_data.py
+docker compose exec backend python scripts/seed.py
 ```
 
 - **Frontend Client UI**: Navigate to `http://localhost:3000`
 - **FastAPI Backend Docs**: Access OpenAPI documentation at `http://localhost:8000/docs`
-- **Default Analyst Login**: Use email `analyst@razorguard.ai` and password `password` to authenticate.
+- **Default Analyst Login**: Seed the database and login using the demo analyst account created by the seed script (see `scripts/seed.py` for credentials — demo-only, not a real account).
 
 ---
 
@@ -178,7 +186,7 @@ All analyst-facing endpoints are protected by **JWT Bearer tokens** (HS256 + bcr
 
 ## Demo Scenarios
 
-The sandbox environment contains three reproducible scenarios designed to show how different inputs change the derived evidence and deterministic outcomes:
+The sandbox environment contains three reproducible scenarios designed to show how different inputs change the derived evidence and deterministic outcomes. Seed the database and login using the demo analyst account created by the seed script (see `scripts/seed.py` for credentials — demo-only, not a real account) to investigate:
 
 ### Scenario A: LOW RISK (Transaction ID: `TXN-10021`)
 - **Profile**: INR 1,200 food merchant payment for user `usr_safe_01`.
@@ -229,3 +237,10 @@ Three reasons drove this choice. First, **interpretability**: Nearest Centroid p
 - **RAG & Multi-Agent:** Grounding the LLM using real policy segments and graph walks prevents hallucinations.
 - **Local SQLite Fallback:** The vector store implements a dialect-based fallback inside the `search_vector_store` function in [vector_store.py](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/ai/vector_store.py). If a non-PostgreSQL database is detected, it automatically computes cosine similarity on local Python lists, enabling both local development and unit test suites to run seamlessly without requiring a live pgvector database.
 - **RAG for Policy Grounding:** Storing manuals in RAG instead of hardcoding prompt instructions prevents context window bloat and allows updating manuals without code changes.
+
+---
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
