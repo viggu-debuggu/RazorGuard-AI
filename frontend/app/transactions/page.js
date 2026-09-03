@@ -34,7 +34,7 @@ function statusBadgeClass(status) {
 }
 
 export default function TransactionsQueue() {
-  const { token } = useAuth();
+  const { token, apiFetch } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [minScore, setMinScore] = useState(0);
@@ -48,8 +48,11 @@ export default function TransactionsQueue() {
     if (statusFilter) url += `status=${statusFilter}&`;
     if (minScore > 0) url += `min_score=${minScore}&`;
 
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.json())
+    apiFetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
         if (Array.isArray(data)) setTransactions(data);
         setLoading(false);

@@ -44,7 +44,7 @@ function MetricsSkeleton() {
 }
 
 export default function DashboardHome() {
-  const { token } = useAuth();
+  const { token, apiFetch } = useAuth();
   const [escalations, setEscalations] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -55,10 +55,13 @@ export default function DashboardHome() {
   useEffect(() => {
     if (!token) return;
 
-    fetch(`${API_URL}/api/v1/transactions?status=Escalated`, {
+    apiFetch(`${API_URL}/api/v1/transactions?status=Escalated`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
         if (Array.isArray(data)) {
           setEscalations(data.slice(0, 6));
@@ -66,30 +69,40 @@ export default function DashboardHome() {
       })
       .catch(() => {});
 
-    fetch(`${API_URL}/api/v1/transactions/metrics/dashboard`, {
+    apiFetch(`${API_URL}/api/v1/transactions/metrics/dashboard`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
-        setMetrics(data);
+        if (data && typeof data.processed_today !== "undefined") {
+          setMetrics(data);
+        }
         setLoadingMetrics(false);
       })
       .catch(() => {
         setLoadingMetrics(false);
       });
 
-    fetch(`${API_URL}/api/v1/transactions/metrics/efficiency`, {
+    apiFetch(`${API_URL}/api/v1/transactions/metrics/efficiency`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
-        setEfficiency(data);
+        if (data && typeof data.total_cases_processed !== "undefined") {
+          setEfficiency(data);
+        }
         setLoadingEfficiency(false);
       })
       .catch(() => {
         setLoadingEfficiency(false);
       });
-  }, [token]);
+  }, [token, apiFetch]);
 
   const escalatedCount = escalations.length;
   const subtitleText = loadingMetrics
