@@ -22,10 +22,7 @@
 | Action | Expected UI State |
 |---|---|
 | Open `http://localhost:3000` in browser | RazorGuard AI login page loads — dark background, logo visible |
-| Click the **Email** field | Field focused |
-| Type `analyst@razorguard.ai` | Email entered |
-| Click the **Password** field | Field focused |
-| Type `password` | Password entered (masked) |
+| Enter demo credentials | Seed the database and login using the demo analyst account created by the seed script (see `scripts/seed.py` for credentials — demo-only, not a real account). |
 | Click **Login** / press Enter | Brief spinner → redirect to **Dashboard** |
 
 > **Screen region to capture**: Full browser viewport (login form centered).

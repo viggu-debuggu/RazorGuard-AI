@@ -50,11 +50,18 @@ from ml.predict import predict_transaction_risk  # noqa: E402
 # ---------------------------------------------------------------------------
 
 def _make_safe(seed: int) -> Dict:
-    """Generates a 'Safe' labelled synthetic record."""
-    amount = 300.0 + (seed % 50) * 150.0          # INR 300–7,650
-    location_drift = 0.5 + (seed % 10) * 3.0      # 0.5–28.0 km
-    velocity = 1 + (seed % 2)                      # 1–2 txns/hr
-    device_score = 0.05 + (seed % 8) * 0.02       # 0.05–0.19 (trusted)
+    """Generates a 'Safe' labelled synthetic record with realistic boundary overlap."""
+    if seed in (17, 53, 91):
+        # Realistic borderline cases (e.g. domestic business travel or higher legitimate purchase)
+        amount = 32000.0 + (seed % 5) * 2000.0        # INR 32K–40K (overlaps with low suspicious)
+        location_drift = 120.0 + (seed % 4) * 30.0    # 120–210 km
+        velocity = 2 + (seed % 2)                     # 2–3 txns/hr
+        device_score = 0.32 + (seed % 3) * 0.05       # 0.32–0.42
+    else:
+        amount = 300.0 + (seed % 50) * 150.0          # INR 300–7,650
+        location_drift = 0.5 + (seed % 10) * 3.0      # 0.5–28.0 km
+        velocity = 1 + (seed % 2)                     # 1–2 txns/hr
+        device_score = 0.05 + (seed % 8) * 0.02       # 0.05–0.19 (trusted)
     return {
         "amount": amount,
         "location_drift": location_drift,
@@ -65,11 +72,24 @@ def _make_safe(seed: int) -> Dict:
 
 
 def _make_suspicious(seed: int) -> Dict:
-    """Generates a 'Suspicious' labelled synthetic record."""
-    amount = 45000.0 + (seed % 10) * 5000.0       # INR 45K–95K
-    location_drift = 200.0 + (seed % 10) * 40.0   # 200–580 km (cross-region)
-    velocity = 3 + (seed % 3)                      # 3–5 txns/hr
-    device_score = 0.40 + (seed % 6) * 0.05       # 0.40–0.65
+    """Generates a 'Suspicious' labelled synthetic record with realistic boundary overlap."""
+    if seed in (7, 23):
+        # Borderline lower-risk activity (e.g. mild drift but single transaction)
+        amount = 18000.0 + (seed % 3) * 4000.0        # INR 18K–26K (overlaps with safe)
+        location_drift = 45.0 + (seed % 3) * 20.0     # 45–85 km
+        velocity = 2                                  # 2 txns/hr
+        device_score = 0.22 + (seed % 2) * 0.04       # 0.22–0.26
+    elif seed in (19,):
+        # Borderline higher-risk transaction (approaching high risk)
+        amount = 165000.0                             # INR 165K
+        location_drift = 1450.0                       # 1,450 km
+        velocity = 6                                  # 6 txns/hr
+        device_score = 0.78                           # 0.78
+    else:
+        amount = 45000.0 + (seed % 10) * 5000.0       # INR 45K–95K
+        location_drift = 200.0 + (seed % 10) * 40.0   # 200–580 km (cross-region)
+        velocity = 3 + (seed % 3)                     # 3–5 txns/hr
+        device_score = 0.40 + (seed % 6) * 0.05       # 0.40–0.65
     return {
         "amount": amount,
         "location_drift": location_drift,
@@ -80,11 +100,18 @@ def _make_suspicious(seed: int) -> Dict:
 
 
 def _make_high_risk(seed: int) -> Dict:
-    """Generates a 'High Risk' labelled synthetic record."""
-    amount = 180000.0 + (seed % 10) * 31000.0     # INR 180K–490K
-    location_drift = 1500.0 + (seed % 10) * 300.0 # 1,500–4,500 km (international)
-    velocity = 6 + (seed % 5)                      # 6–10 txns/hr
-    device_score = 0.75 + (seed % 5) * 0.04       # 0.75–0.95 (shared/flagged)
+    """Generates a 'High Risk' labelled synthetic record with realistic boundary overlap."""
+    if seed in (11,):
+        # Borderline case: high ticket but lower drift resembling suspicious
+        amount = 130000.0                             # INR 130K
+        location_drift = 850.0                        # 850 km
+        velocity = 5                                  # 5 txns/hr
+        device_score = 0.68                           # 0.68
+    else:
+        amount = 180000.0 + (seed % 10) * 31000.0     # INR 180K–490K
+        location_drift = 1500.0 + (seed % 10) * 300.0 # 1,500–4,500 km (international)
+        velocity = 6 + (seed % 5)                     # 6–10 txns/hr
+        device_score = 0.75 + (seed % 5) * 0.04       # 0.75–0.95 (shared/flagged)
     return {
         "amount": amount,
         "location_drift": location_drift,
@@ -317,16 +344,16 @@ def write_evaluation_md(r: Dict) -> None:
         f"| Fraudulent (Suspicious + High Risk) | {r['n_fraud']} | {r['n_fraud']/r['n_total']*100:.1f}% |",
         f"| **Total** | **{r['n_total']}** | 100% |",
         "",
-        "**Label generation rules:**",
+        "**Label generation rules (with controlled boundary overlap):**",
         "",
-        "| Class | Amount | Location Drift | Velocity (1h) | Device Score |",
-        "|---|---|---|---|---|",
-        "| Safe | INR 300–7,650 | 0.5–28 km | 1–2 | 0.05–0.19 |",
-        "| Suspicious | INR 45K–95K | 200–580 km | 3–5 | 0.40–0.65 |",
-        "| High Risk | INR 180K–490K | 1,500–4,500 km | 6–10 | 0.75–0.95 |",
+        "| Class | Amount | Location Drift | Velocity (1h) | Device Score | Boundary Overlap Profile |",
+        "|---|---|---|---|---|---|",
+        "| Safe | INR 300–7,650 (edge: 32K–40K) | 0.5–28 km (edge: 120–210 km) | 1–2 (edge: 2–3) | 0.05–0.19 (edge: 0.32–0.42) | ~2.1% domestic travel/higher ticket overlap |",
+        "| Suspicious | INR 45K–95K (edge: 18K–26K / 165K) | 200–580 km (edge: 45–85 km / 1,450 km) | 3–5 (edge: 2 / 6) | 0.40–0.65 (edge: 0.22–0.26 / 0.78) | Borderline overlap with both Safe and High Risk |",
+        "| High Risk | INR 180K–490K (edge: 130K) | 1,500–4,500 km (edge: 850 km) | 6–10 (edge: 5) | 0.75–0.95 (edge: 0.68) | ~4% lower-drift edge cases resembling Suspicious |",
         "",
-        "These thresholds deliberately use the same feature space as `ml/preprocess.py`",
-        "and `ml/train.py` so they are aligned with the classifier's training distribution.\n",
+        "Realistic boundary overlap is intentionally introduced across adjacent classes",
+        "so the classifier must evaluate multi-dimensional trade-offs rather than trivially separating clusters.\n",
         "",
         "---\n",
         "",

@@ -1,6 +1,6 @@
 # RazorGuard AI — Evaluation Report
 
-_Generated: 2026-08-27 14:39 UTC_
+_Generated: 2026-09-03 13:08 UTC_
 
 
 ## Dataset Composition
@@ -17,16 +17,16 @@ reproducible and auditable.
 | Fraudulent (Suspicious + High Risk) | 60 | 30.0% |
 | **Total** | **200** | 100% |
 
-**Label generation rules:**
+**Label generation rules (with controlled boundary overlap):**
 
-| Class | Amount | Location Drift | Velocity (1h) | Device Score |
-|---|---|---|---|---|
-| Safe | INR 300–7,650 | 0.5–28 km | 1–2 | 0.05–0.19 |
-| Suspicious | INR 45K–95K | 200–580 km | 3–5 | 0.40–0.65 |
-| High Risk | INR 180K–490K | 1,500–4,500 km | 6–10 | 0.75–0.95 |
+| Class | Amount | Location Drift | Velocity (1h) | Device Score | Boundary Overlap Profile |
+|---|---|---|---|---|---|
+| Safe | INR 300–7,650 (edge: 32K–40K) | 0.5–28 km (edge: 120–210 km) | 1–2 (edge: 2–3) | 0.05–0.19 (edge: 0.32–0.42) | ~2.1% domestic travel/higher ticket overlap |
+| Suspicious | INR 45K–95K (edge: 18K–26K / 165K) | 200–580 km (edge: 45–85 km / 1,450 km) | 3–5 (edge: 2 / 6) | 0.40–0.65 (edge: 0.22–0.26 / 0.78) | Borderline overlap with both Safe and High Risk |
+| High Risk | INR 180K–490K (edge: 130K) | 1,500–4,500 km (edge: 850 km) | 6–10 (edge: 5) | 0.75–0.95 (edge: 0.68) | ~4% lower-drift edge cases resembling Suspicious |
 
-These thresholds deliberately use the same feature space as `ml/preprocess.py`
-and `ml/train.py` so they are aligned with the classifier's training distribution.
+Realistic boundary overlap is intentionally introduced across adjacent classes
+so the classifier must evaluate multi-dimensional trade-offs rather than trivially separating clusters.
 
 
 ---
@@ -39,12 +39,12 @@ and `ml/train.py` so they are aligned with the classifier's training distributio
 
 | Class | Precision | Recall | F1 |
 |---|---|---|---|
-| Safe | 1.000 | 1.000 | 1.000 |
-| Suspicious | 1.000 | 1.000 | 1.000 |
-| High Risk | 1.000 | 1.000 | 1.000 |
-| **Macro avg** | | | **1.000** |
+| Safe | 0.986 | 0.979 | 0.982 |
+| Suspicious | 0.889 | 0.914 | 0.901 |
+| High Risk | 0.960 | 0.960 | 0.960 |
+| **Macro avg** | | | **0.948** |
 
-**False-Positive Rate** (legitimate transactions incorrectly flagged): **0.00%**
+**False-Positive Rate** (legitimate transactions incorrectly flagged): **2.14%**
 
 > [!NOTE]
 > A low FPR is critical for payment processing — false positives cause legitimate
@@ -60,9 +60,9 @@ Rows = ground truth · Columns = predicted
 
 | | **Pred Safe** | **Pred Suspicious** | **Pred High Risk** |
 |---|---|---|---|
-| **Safe** | 140 | 0 | 0 |
-| **Suspicious** | 0 | 35 | 0 |
-| **High Risk** | 0 | 0 | 25 |
+| **Safe** | 137 | 3 | 0 |
+| **Suspicious** | 2 | 32 | 1 |
+| **High Risk** | 0 | 1 | 24 |
 
 ---
 
@@ -76,9 +76,9 @@ depending on LLM provider).
 
 | Percentile | Latency |
 |---|---|
-| p50 | 0.005 ms |
-| p95 | 0.007 ms |
-| Mean | 0.007 ms |
+| p50 | 0.006 ms |
+| p95 | 0.014 ms |
+| Mean | 0.031 ms |
 
 > [!TIP]
 > The deterministic scoring core (ML + rules + graph) completes well under 1 ms

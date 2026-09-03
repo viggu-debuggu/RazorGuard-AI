@@ -117,10 +117,9 @@ Wildcard `*` origins must **never** be used in production with `allow_credential
 
 ## 4. Seeded Demo Credentials
 
-The seed script (`scripts/seed_data.py`) creates a default analyst account:
+The seed script (`scripts/seed.py`) creates a default analyst account:
 
-- Email: `analyst@razorguard.ai`
-- Password: `password` (bcrypt-hashed before storage)
+Seed the database and login using the demo analyst account created by the seed script (see `scripts/seed.py` for credentials — demo-only, not a real account).
 
 > [!WARNING]
 > These credentials are intended exclusively for judge evaluation and demo rehearsal.

@@ -161,18 +161,17 @@ docker compose exec backend python scripts/seed.py
 Run `python scripts/evaluate.py` from the repo root to reproduce these numbers.
 
 > [!NOTE]
-> **Honest Disclosure on Synthetic Evaluation**: The 1.000 (100%) precision/recall/F1 metrics below are measured on a synthetic baseline dataset of 200 transactions where feature boundaries between classes are cleanly separated (e.g. Safe amounts: INR 300–7,650 vs Suspicious: INR 45K–95K vs High Risk: INR 180K–490K; Velocity: 1–2 vs 3–5 vs 6–10; Device score: 0.05–0.19 vs 0.40–0.65 vs 0.75–0.95 with zero boundary overlap). This demonstrates mathematical determinism and correct rule mapping of the nearest-centroid scoring logic on a synthetic benchmark, rather than a generalized real-world model accuracy claim.
+> **Honest Disclosure on Synthetic Evaluation**: The metrics below are measured on a synthetic benchmark of 200 transactions (140 legit / 60 fraud) with controlled boundary overlap between adjacent classes (e.g., borderline amounts INR 32K–40K / 18K–26K, domestic travel location drift 120–210 km, and device overlap scores). Rather than artificially clean separation, the classifier evaluates realistic trade-offs across amount, drift, velocity, and device signals. This demonstrates deterministic scoring performance on a reproducible benchmark, rather than a generalized real-world production claim.
 
 | Class | Precision | Recall | F1 |
 |---|---|---|---|
-| Safe | 1.000 | 1.000 | 1.000 |
-| Suspicious | 1.000 | 1.000 | 1.000 |
-| High Risk | 1.000 | 1.000 | 1.000 |
-| **Macro avg** | | | **1.000** |
+| Safe | 0.986 | 0.979 | 0.982 |
+| Suspicious | 0.889 | 0.914 | 0.901 |
+| High Risk | 0.960 | 0.960 | 0.960 |
+| **Macro avg** | | | **0.948** |
 
-- **False-Positive Rate** (legitimate transactions incorrectly flagged): **0.00%**
+- **False-Positive Rate** (legitimate transactions incorrectly flagged): **2.14%**
 - **Dataset**: 200 synthetic transactions (70% legit / 30% fraud)
-- **Latency** (Deterministic Score Engine, p50/p95): **0.005 ms / 0.007 ms**
 
 See [docs/EVALUATION.md](docs/EVALUATION.md) for the full confusion matrix and latency breakdown.
 

@@ -17,14 +17,15 @@ from app.models.transaction import Transaction
 client = TestClient(app)
 
 # 1. Register & Login
+demo_password = os.getenv("DEMO_ANALYST_PASSWORD", "demo_placeholder_analyst_2026")
 client.post("/api/v1/auth/register", json={
     "email": "analyst@razorguard.ai",
-    "password": "password",
+    "password": demo_password,
     "full_name": "Risk Analyst"
 })
 log_res = client.post("/api/v1/auth/login", json={
     "email": "analyst@razorguard.ai",
-    "password": "password"
+    "password": demo_password
 })
 token = log_res.json()["access_token"]
 headers = {"Authorization": f"Bearer {token}"}

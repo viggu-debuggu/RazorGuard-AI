@@ -108,7 +108,7 @@ and Next.js frontend can be deployed as separate Render Web Services.
 ## Step 4 — Verify
 
 1. Navigate to `https://<your-frontend>.onrender.com`
-2. Login with `analyst@razorguard.ai` / `password`
+2. Seed the database and login using the demo analyst account created by the seed script (see `scripts/seed.py` for credentials — demo-only, not a real account).
 3. Confirm the three demo scenarios appear in the transaction list
 
 ---
