@@ -60,7 +60,7 @@ RazorGuard AI was architected specifically to bridge these gaps. By unifying nea
 
 | **Merchant Resolution Portal** | **Compliance Policy Vault (Hybrid RAG)** |
 | :---: | :---: |
-| <img src="docs/screenshots/razorguard_merchant_portal.png" alt="Merchant Resolution Portal" width="100%" /> | <img src="docs/screenshots/razorguard_policies.png" alt="Compliance Policy Vault" width="100%" /> |
+| <img src="docs/screenshots/razorguard_merchant_portal.png?v=2" alt="Merchant Resolution Portal" width="100%" /> | <img src="docs/screenshots/razorguard_policies.png" alt="Compliance Policy Vault" width="100%" /> |
 | *Transparent hold explanations, resolution checklist, and merchant document upload* | *Indexed regulatory manuals, semantic vector search, and chunk citations* |
 
 </div>
