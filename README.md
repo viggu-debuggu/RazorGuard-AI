@@ -19,6 +19,18 @@ RazorGuard AI translates complex multi-layered data into clear operational outco
 
 ---
 
+## The Gap in Current Risk Infrastructure
+
+Across modern payment gateways processing millions of transactions daily, fraud and risk infrastructure typically relies on two disjoint systems: high-throughput machine learning models that emit opaque numerical risk scores (e.g., `0.87`), and hardcoded rule engines executing isolated if/else checks. While fast, this decoupled architecture creates systemic operational blind spots across the industry:
+
+1. **Lack of Decision Traceability**: A numerical score or static alert does not explain *why* a payment was escalated. Human analysts must spend 5–10 minutes cross-referencing telemetry, IP logs, and compliance manuals just to understand the root cause.
+2. **Per-Transaction Isolation**: Standard risk pipelines evaluate transactions independently. Distributed fraud rings—sharing device fingerprints, bank cards, or subnets across dozens of synthetic merchant or consumer accounts—slip past per-event velocity filters.
+3. **Manual Compliance Assembly**: When regulators or dispute teams request audit trails, risk teams must manually reconstruct evidence snapshots, citation clauses, and justification notes post hoc.
+
+RazorGuard AI was architected specifically to bridge these gaps. By unifying nearest-centroid ML scoring, graph relationship traversal, and retrieval-augmented compliance grounding into a deterministic, multi-agent evaluation pipeline, it transforms raw signals into structured, auditable evidence records at ingestion time.
+
+---
+
 ## Why This Matters for Razorpay's Risk Operations
 
 - **KYC & Onboarding Compliance monitoring needs explainable analytics, not black-box risk scores.** RazorGuard AI computes a composite score and maps structured findings directly to database evidence records: [`backend/app/services/agent_team.py:L380-L421`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_team.py#L380-L421) runs a consensus rules model, which [`backend/app/services/agent_orchestrator.py:L247-L288`](file:///c:/Users/vigne/Downloads/portfolio/Razorgourd%20Ai/backend/app/services/agent_orchestrator.py#L247-L288) maps to structured database evidence. This gives risk managers absolute visibility into the scoring criteria for onboarding audits.
